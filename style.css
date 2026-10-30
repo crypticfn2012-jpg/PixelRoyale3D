@@ -39,3 +39,5 @@
 @media(max-width:760px){.touch-controls{grid-template-columns:repeat(2,53px);gap:5px}.touch-controls button{height:36px;background:#081b2bdc;border-color:#85b4c7aa}.touch-controls button[data-touch="fire"]{grid-column:2;background:linear-gradient(180deg,#f0b85f,#9d602b);border-color:#ffe0a4;color:#20160c}.touch-controls button[data-touch="next"]{font-size:6px}.move-stick{width:100px;height:100px;margin:-50px 0 0 -50px}}
 
 .hotbar-slot:not(.active){border-color:var(--tier-color,#b6c7d46b)}.hotbar-slot:not(.active):after{content:'';position:absolute;left:7px;right:7px;top:0;height:2px;background:var(--tier-color,#b6c7d4);opacity:.75;border-radius:4px}
+
+@media(max-width:760px){.touch-controls{grid-template-columns:repeat(3,48px);gap:4px;right:6px;bottom:82px}.touch-controls button{height:33px;padding:3px;font-size:6px}.touch-controls button[data-touch="fire"]{grid-column:auto}.touch-controls button[data-touch="shard"]{border-color:#c16ddd;color:#f0caff}}
