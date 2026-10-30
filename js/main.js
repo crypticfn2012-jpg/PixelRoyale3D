@@ -435,11 +435,11 @@ function startMatch(mode,fromRoom=false){
     for(let i=0;i<23;i++)spawnBot(i);
     for(const b of BOSSES)spawnBoss(b);
     spawnWorldLoot(82);
-    state.player.position.set(0,groundHeight(0,0)+.05,0);
-    cameraYaw=0;
+    state.player.position.set(0,groundHeight(0,0)+.05,0);if(playerModel)playerModel.visible=false;
+    state.cameraYaw=0;
     setTip('Drop into the island. Find weapons, gather shields and survive the storm.');
   }else{
-    buildBoxArena();startBoxRound(true);
+    buildBoxArena();startBoxRound(true);if(playerModel)playerModel.visible=false;
     setTip('BOX FIGHTS · Build, edit and win five rounds. You start with an AR and a shotgun.');
   }
   hide('menu');hide('result-overlay');hide('pause-overlay');hide('lobby');show('game-hud');
@@ -452,20 +452,20 @@ function startMatch(mode,fromRoom=false){
 }
 function setTip(text){$('game-tip').textContent=text;state.tipTimer=4}
 function buildBoxArena(){
-  const floor=new THREE.Mesh(new THREE.CylinderGeometry(28,29,.7,12),mat(0x394e54));floor.position.set(0,groundHeight(0,0)-.25,0);floor.receiveShadow=true;scene.add(floor);
-  const markings=new THREE.Mesh(new THREE.TorusGeometry(21,.12,6,96),new THREE.MeshBasicMaterial({color:0x50d7d1}));markings.rotation.x=Math.PI/2;markings.position.set(0,groundHeight(0,0)+.15,0);scene.add(markings);
+  const arenaZ=-98;const floor=new THREE.Mesh(new THREE.CylinderGeometry(28,29,.7,12),mat(0x394e54));floor.position.set(0,groundHeight(0,arenaZ)-.25,arenaZ);floor.receiveShadow=true;scene.add(floor);
+  const markings=new THREE.Mesh(new THREE.TorusGeometry(21,.12,6,96),new THREE.MeshBasicMaterial({color:0x50d7d1}));markings.rotation.x=Math.PI/2;markings.position.set(0,groundHeight(0,arenaZ)+.15,arenaZ);scene.add(markings);
   for(let i=0;i<4;i++){
-    const a=i*Math.PI/2,x=Math.cos(a)*28,z=Math.sin(a)*28;
+    const a=i*Math.PI/2,x=Math.cos(a)*28,z=arenaZ+Math.sin(a)*28;
     const post=addBox(scene,1.1,5,1.1,0x273b4a,x,groundHeight(x,z)+2.2,z);
     const bar=addBox(scene,1,3.1,1,0x597a82,x,groundHeight(x,z)+6,z);bar.material=mat(0x597a82,.5,.45);
   }
   for(let i=-1;i<=1;i++){
-    addBox(scene,42,.6,.7,0x526a70,0,groundHeight(0,-28)+.1,-28);
-    addBox(scene,42,.6,.7,0x526a70,0,groundHeight(0,28)+.1,28);
-    addBox(scene,.7,.6,42,0x526a70,-28,groundHeight(-28,0)+.1,0);
-    addBox(scene,.7,.6,42,0x526a70,28,groundHeight(28,0)+.1,0);
+    addBox(scene,42,.6,.7,0x526a70,0,groundHeight(0,arenaZ-28)+.1,arenaZ-28);
+    addBox(scene,42,.6,.7,0x526a70,0,groundHeight(0,arenaZ+28)+.1,arenaZ+28);
+    addBox(scene,.7,.6,42,0x526a70,-28,groundHeight(-28,arenaZ)+.1,arenaZ);
+    addBox(scene,.7,.6,42,0x526a70,28,groundHeight(28,arenaZ)+.1,arenaZ);
   }
-  const label=addBox(scene,0.1,0.1,0.1,0xffffff,0,-30,0,{shadow:false});label.visible=false;
+  const label=addBox(scene,0.1,0.1,0.1,0xffffff,0,-30,arenaZ,{shadow:false});label.visible=false;
 }
 function startBoxRound(first=false){
   if(state.mode!=='box'||!state.running)return;
@@ -475,9 +475,9 @@ function startBoxRound(first=false){
   state.box.roundEnded=false;state.box.nextRoundAt=0;
   state.health=100;state.shield=100;state.player.userData.health=100;state.player.userData.shield=100;state.player.userData.dead=false;state.player.visible=true;
   state.slots=[createWeaponSlot(3),createWeaponSlot(2)];state.selected=0;state.wood=250;
-  state.player.position.set(-2,groundHeight(-2,12),12);state.cameraYaw=Math.PI;
+  state.player.position.set(-2,groundHeight(-2,-86),-86);state.cameraYaw=Math.PI;
   const bot=createActor({isBot:true,name:NAMES[Math.floor(Math.random()*NAMES.length)],color:0xe19b48,weaponId:3,health:100,shield:100,speed:4.6});
-  bot.userData.boxOpponent=true;bot.userData.ammo=WEAPONS[3].mag;addActorToWorld(bot,2,-12);state.bots.push(bot);
+  bot.userData.boxOpponent=true;bot.userData.ammo=WEAPONS[3].mag;addActorToWorld(bot,2,-110);state.bots.push(bot);
   if(!first){setTip('ROUND '+state.box.round+' · '+state.box.playerScore+'–'+state.box.botScore+' · FIRST TO FIVE')}
   updateHud(true);
 }
@@ -491,7 +491,7 @@ function endBoxRound(winner){
   if(state.box.playerScore>=5||state.box.botScore>=5)state.box.nextRoundAt=state.elapsed+2.7;
 }
 function finishMatch(win){
-  if(!state.running)return;state.running=false;state.paused=false;state.mouseDown=false;
+  if(!state.running)return;state.running=false;state.paused=false;state.mouseDown=false;if(state.player)state.player.visible=false;if(playerModel)playerModel.visible=true;
   const box=state.mode==='box',coins=box?(state.box.playerScore*35+(win?120:20)):(win?220:35+state.kills*8),xp=box?(win?280:90+state.box.playerScore*30):(win?450:100+state.kills*30);
   state.matches++;state.challenge.matches++;if(win)state.wins++;
   state.totalKills+=state.kills;addProgress(xp,coins);save();
@@ -522,7 +522,7 @@ function fireWeapon(actor,remoteShot=false){
   slot.ammo--;if(isPlayer){state.fireTimer=weapon.rate;ud.ammo=slot.ammo}else ud.ammo=slot.ammo;
   const forward=isPlayer?playerForward():new THREE.Vector3(Math.sin(actor.rotation.y),.01,Math.cos(actor.rotation.y)).normalize();
   const origin=actor.position.clone().add(new THREE.Vector3(0,isPlayer?1.5:1.45,0)).add(forward.clone().multiplyScalar(.85));
-  const spread=weapon.spread*(1-(state.shard==='deadeye'&&state.elapsed<state.shardActiveUntil?.28:0));
+  const spread=weapon.spread*(1-(state.shard==='deadeye'&&state.elapsed<state.shardActiveUntil ? .28 : 0));
   const shardBoost=state.shard&&state.elapsed<state.shardActiveUntil&&state.shard==='overdrive'?1.18:state.shard&&state.elapsed<state.shardActiveUntil&&state.shard==='pulseSurge'&&weapon.pulse?1.16:1;
   for(let i=0;i<weapon.pellets;i++){
     const dir=forward.clone().add(new THREE.Vector3(rand(-spread,spread),rand(-spread,spread),rand(-spread,spread))).normalize();
@@ -536,7 +536,7 @@ function fireWeapon(actor,remoteShot=false){
   if(isPlayer&&weapon.name==='Flint-Knock')state.player.position.add(forward.clone().multiplyScalar(-1.1));
 }
 function spawnProjectile(origin,dir,damage,color,speed,life,owner,remote=false){
-  const mesh=new THREE.Mesh(new THREE.SphereGeometry(remote?.11:.09,7,6),new THREE.MeshBasicMaterial({color:color,transparent:true,opacity:.95}));
+  const mesh=new THREE.Mesh(new THREE.SphereGeometry(remote ? .11 : .09,7,6),new THREE.MeshBasicMaterial({color:color,transparent:true,opacity:.95}));
   mesh.position.copy(origin);scene.add(mesh);
   const light=new THREE.PointLight(color,remote?.5:.35,3);mesh.add(light);
   state.bullets.push({mesh,dir:dir.clone().normalize(),damage,color,speed,life,owner,remote});
@@ -723,7 +723,7 @@ function collides(x,z,radius=.7){
 }
 function moveActor(actor,dx,dz){
   let x=actor.position.x+dx,z=actor.position.z+dz;
-  const r=actor===state.player?.65:.75;
+  const r=actor===state.player ? .65 : .75;
   if(!collides(x,actor.position.z,r))actor.position.x=x;
   if(!collides(actor.position.x,z,r))actor.position.z=z;
   const radial=Math.hypot(actor.position.x,actor.position.z);
@@ -1091,7 +1091,7 @@ function tick(dt){
   if(state.mode==='br'&&state.elapsed>20&&state.bots.filter(b=>!b.userData.dead).length===0)finishMatch(true);
   updateAnimations(dt);
   if(state.elapsed-lastNetUpdate>.1){lastNetUpdate=state.elapsed;sendNetState()}
-  if(state.elapsed-lastHudUpdate/1000>.12)updateHud();
+  updateHud();
   drawMinimap();
 }
 function loop(t){
@@ -1121,7 +1121,7 @@ function initEvents(){
   $('open-news').onclick=()=>show('news-overlay');$('news-close').onclick=()=>hide('news-overlay');
   $('watch-trailer').onclick=playTrailer;$('trailer-exit').onclick=()=>hide('trailer-overlay');
   $('pause-button').onclick=pauseMatch;$('resume-button').onclick=pauseMatch;
-  $('quit-button').onclick=()=>{state.running=false;hide('pause-overlay');hide('game-hud');show('menu');document.exitPointerLock?.()};
+  $('quit-button').onclick=()=>{state.running=false;if(state.player)state.player.visible=false;if(playerModel)playerModel.visible=true;hide('pause-overlay');hide('game-hud');show('menu');document.exitPointerLock?.()};
   $('play-again').onclick=()=>startMatch(state.mode);$('result-menu').onclick=()=>{hide('result-overlay');show('menu')};
   $('game-canvas').addEventListener('pointerdown',e=>{
     if(!state.running||state.paused)return;
