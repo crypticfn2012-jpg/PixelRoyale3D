@@ -1480,7 +1480,7 @@ function initEvents(){
   window.addEventListener('keyup',e=>state.keys[e.code]=false);
   document.querySelectorAll('[data-touch]').forEach(btn=>{
     const action=btn.dataset.touch;
-    btn.addEventListener('pointerdown',e=>{e.preventDefault();if(action==='fire'){state.mouseDown=true;fireWeapon(state.player)}if(action==='jump')state.keys.Space=true;if(action==='build')buildWall();if(action==='pickup')pickupNearest();if(action==='dash')pulseDash();if(action==='reload')startReload();if(action==='next')switchWeapon((state.selected+1)%Math.max(1,state.slots.length))});
+    btn.addEventListener('pointerdown',e=>{e.preventDefault();if(action==='fire'){state.mouseDown=true;fireWeapon(state.player)}if(action==='jump')state.keys.Space=true;if(action==='build')buildWall();if(action==='pickup')pickupNearest();if(action==='dash')pulseDash();if(action==='reload')startReload();if(action==='next')switchWeapon((state.selected+1)%Math.max(1,state.slots.length));if(action==='med')useConsumable('med');if(action==='shield')useConsumable('shield');if(action==='chug')useConsumable('chug');if(action==='splash')useConsumable('splash');if(action==='edit')editNearestWall();if(action==='shard')activateShard()});
     btn.addEventListener('pointerup',()=>{if(action==='fire')state.mouseDown=false;if(action==='jump')state.keys.Space=false});
     btn.addEventListener('pointerleave',()=>{if(action==='fire')state.mouseDown=false});
   });
