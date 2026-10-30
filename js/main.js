@@ -109,7 +109,7 @@ const state = {
   mode:'br',running:false,paused:false,elapsed:0,last:0,fps:60,fpsFrames:0,fpsTime:0,
   kills:0,alive:24,health:100,shield:0,wood:250,medkits:0,shields:0,chugs:0,splashes:0,
   player:null,bots:[],bosses:[],bullets:[],loot:[],particles:[],trailAt:0,builds:[],colliders:[],remotePlayers:new Map(),
-  slots:[],selected:0,mouseDown:false,keys:{},cameraYaw:0,cameraPitch:-.08,
+  slots:[],selected:0,editingWall:null,mouseDown:false,keys:{},cameraYaw:0,cameraPitch:-.08,
   storm:{phase:0,radius:145,start:145,target:145,timer:42,elapsed:0,damageTick:0,cx:0,cz:0},
   box:{round:1,playerScore:0,botScore:0,roundEnded:false,nextRoundAt:0,totalKills:0},roulette:{index:0,kills:0,deaths:0,respawnAt:0,timeLimit:300},botRespawns:[],
   shard:null,shardActiveUntil:0,shardCooldownUntil:0,dashes:0,dashChargeAt:0,
@@ -832,11 +832,27 @@ function editNearestWall(){
   let best=null,d=7;
   for(const w of state.builds){if(w.remote)continue;const n=Math.hypot(w.collider.x-state.player.position.x,w.collider.z-state.player.position.z);if(n<d){best=w;d=n}}
   if(!best){toast('NO WALL CLOSE ENOUGH TO EDIT');return}
-  best.edited=!best.edited;
-  for(const child of best.mesh.children){if(child.userData.panel&&child.userData.col===1&&child.userData.row===0)child.visible=!best.edited}
-  best.collider.d=best.edited?1.1:.7;
-  toast(best.edited?'WALL EDITED · WINDOW OPENED':'WALL RESET');
+  state.editingWall=best;show('edit-selector');
 }
+function applyWallEdit(pattern){
+  const wall=state.editingWall;if(!wall)return;
+  if(pattern==='reset'){
+    wall.edited=false;wall.collider.opening=null;
+    for(const child of wall.mesh.children)if(child.userData.panel)child.visible=true;
+    toast('WALL RESET');
+  }else{
+    wall.edited=true;wall.collider.opening=pattern;
+    for(const child of wall.mesh.children){
+      if(!child.userData.panel)continue;
+      const lower=child.userData.row===0;
+      const col=child.userData.col;
+      child.visible=!(lower&&(pattern==='left'?[0,1]:[1,2]).includes(col));
+    }
+    toast(pattern==='left'?'LEFT + CENTRE EDIT':'CENTRE + RIGHT EDIT');
+  }
+  hide('edit-selector');state.editingWall=null;
+}
+
 function collides(x,z,radius=.7){
   for(const c of state.colliders){
     const dx=x-c.x,dz=z-c.z;
@@ -1011,7 +1027,7 @@ function projectileBlocked(pos,damage,owner){
     const dx=pos.x-c.x,dz=pos.z-c.z,a=Math.cos(c.yaw||0),b=Math.sin(c.yaw||0),lx=dx*a-dz*b,lz=dx*b+dz*a;
     if(Math.abs(lx)>(c.w||4)/2+.12||Math.abs(lz)>(c.d||4)/2+.12)continue;
     const floor=groundHeight(pos.x,pos.z);if(pos.y<floor+.2||pos.y>floor+12)continue;
-    if(c.wall){const wall=state.builds.find(w=>w.collider===c);if(wall){wall.hp-=damage;if(wall.hp<=0){removeEntity(wall.mesh);state.builds=state.builds.filter(w=>w!==wall);state.colliders=state.colliders.filter(x=>x!==c)}}}
+    if(c.wall){const wall=state.builds.find(w=>w.collider===c);if(wall?.edited&&pos.y<floor+1.65&&((wall.collider.opening==='left'&&lx<.8)||(wall.collider.opening==='right'&&lx>-.8)))continue;if(wall){wall.hp-=damage;if(wall.hp<=0){removeEntity(wall.mesh);state.builds=state.builds.filter(w=>w!==wall);state.colliders=state.colliders.filter(x=>x!==c)}}}
     return true;
   }
   return false;
@@ -1400,6 +1416,7 @@ function initEvents(){
   $('open-news').onclick=()=>show('news-overlay');$('news-close').onclick=()=>hide('news-overlay');
   $('watch-trailer').onclick=playTrailer;$('trailer-exit').onclick=()=>hide('trailer-overlay');
   $('pause-button').onclick=pauseMatch;$('resume-button').onclick=pauseMatch;
+  document.querySelectorAll('[data-wall-edit]').forEach(btn=>btn.onclick=()=>applyWallEdit(btn.dataset.wallEdit));
   $('quit-button').onclick=returnToMenu;
   $('play-again').onclick=()=>startMatch(state.mode);$('result-menu').onclick=returnToMenu;
   $('game-canvas').addEventListener('pointerdown',e=>{
