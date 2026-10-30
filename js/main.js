@@ -1146,6 +1146,14 @@ function loop(t){
   if(renderer&&scene&&camera)renderer.render(scene,camera);
 }
 
+function returnToMenu(){
+  state.running=false;state.paused=false;state.mouseDown=false;
+  document.exitPointerLock?.();
+  clearMatchEntities();
+  if(state.player){removeEntity(state.player);state.player=null}
+  if(playerModel)playerModel.visible=true;
+  hide('result-overlay');hide('pause-overlay');hide('game-hud');hide('lobby');show('menu');
+}
 function pauseMatch(){
   if(!state.running)return;state.paused=!state.paused;
   if(state.paused){show('pause-overlay');document.exitPointerLock?.();state.mouseDown=false}
@@ -1164,8 +1172,8 @@ function initEvents(){
   $('open-news').onclick=()=>show('news-overlay');$('news-close').onclick=()=>hide('news-overlay');
   $('watch-trailer').onclick=playTrailer;$('trailer-exit').onclick=()=>hide('trailer-overlay');
   $('pause-button').onclick=pauseMatch;$('resume-button').onclick=pauseMatch;
-  $('quit-button').onclick=()=>{state.running=false;if(state.player)state.player.visible=false;if(playerModel)playerModel.visible=true;hide('pause-overlay');hide('game-hud');show('menu');document.exitPointerLock?.()};
-  $('play-again').onclick=()=>startMatch(state.mode);$('result-menu').onclick=()=>{hide('result-overlay');show('menu')};
+  $('quit-button').onclick=returnToMenu;
+  $('play-again').onclick=()=>startMatch(state.mode);$('result-menu').onclick=returnToMenu;
   $('game-canvas').addEventListener('pointerdown',e=>{
     if(!state.running||state.paused)return;
     if(document.pointerLockElement!==$('game-canvas')){$('game-canvas').requestPointerLock?.();return}
