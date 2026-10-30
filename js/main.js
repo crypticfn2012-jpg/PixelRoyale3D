@@ -168,6 +168,10 @@ function loadSave(){
     const saved=JSON.parse(localStorage.getItem('pixelroyale3d-save')||'{}');
     for(const k of ['coins','xp','level','totalKills','wins','matches','skin','premiumPass'])if(saved[k]!==undefined)state[k]=saved[k];
     if(Array.isArray(saved.ownedSkins))state.ownedSkins=saved.ownedSkins;
+    for(const key of ['hat','trail','buildStyle'])if(saved[key]!==undefined)state[key]=saved[key];
+    if(Array.isArray(saved.ownedHats))state.ownedHats=saved.ownedHats;
+    if(Array.isArray(saved.ownedTrails))state.ownedTrails=saved.ownedTrails;
+    if(Array.isArray(saved.ownedBuilds))state.ownedBuilds=saved.ownedBuilds;
     if(saved.upgrades)Object.assign(state.upgrades,saved.upgrades);
     if(saved.settings)Object.assign(state.settings,saved.settings);
     if(saved.challenge)Object.assign(state.challenge,saved.challenge);
@@ -176,12 +180,13 @@ function loadSave(){
   $('fps-counter').classList.toggle('hidden',!state.settings.showFps);
   if(!state.ownedSkins.includes('Blaze'))state.ownedSkins.unshift('Blaze');
   if(!state.ownedSkins.includes(state.skin))state.skin='Blaze';
+  for(const [value,list,key] of [['None',state.ownedHats,'hat'],['Default',state.ownedTrails,'trail'],['Oak',state.ownedBuilds,'buildStyle']]){if(!list.includes(value))list.unshift(value);if(!list.includes(state[key]))state[key]=value;}
   updateProfile();
 }
 function save(){
   try{localStorage.setItem('pixelroyale3d-save',JSON.stringify({
     coins:state.coins,xp:state.xp,level:state.level,totalKills:state.totalKills,wins:state.wins,matches:state.matches,
-    skin:state.skin,ownedSkins:state.ownedSkins,premiumPass:state.premiumPass,upgrades:state.upgrades,settings:state.settings,challenge:state.challenge
+    skin:state.skin,ownedSkins:state.ownedSkins,hat:state.hat,ownedHats:state.ownedHats,trail:state.trail,ownedTrails:state.ownedTrails,buildStyle:state.buildStyle,ownedBuilds:state.ownedBuilds,premiumPass:state.premiumPass,upgrades:state.upgrades,settings:state.settings,challenge:state.challenge
   }))}catch(e){console.warn('Could not save progress',e)}
 }
 function updateProfile(){
@@ -483,6 +488,7 @@ function setupPlayer(){
   if(state.player)removeEntity(state.player);
   const skin=SKINS.find(s=>s.name===state.skin)||SKINS[0];
   state.player=createActor({isPlayer:true,name:'YOU',color:skin.color,health:100,maxHealth:100,weaponId:0});
+  applyPlayerCosmetics(state.player);
   state.player.userData.ammo=WEAPONS[0].mag;
   addActorToWorld(state.player,0,0);
 }
@@ -1342,9 +1348,48 @@ async function boot(){
     console.error(e);$('boot-caption').textContent='STARTUP ERROR · '+e.message;
   }
 }
+function applyPlayerCosmetics(actor){
+  if(!actor)return;
+  if(actor.userData.cosmeticHat)removeEntity(actor.userData.cosmeticHat);
+  const hat=HATS.find(h=>h.name===state.hat)||HATS[0];
+  if(hat.name==='None')return;
+  const group=new THREE.Group();group.position.set(0,0,0);const color=mat(hat.color,.48,.3,hat.name.toLowerCase().includes('pulse')?hat.color:0,hat.name.toLowerCase().includes('pulse')?1:0);
+  const dark=mat(0x182a39,.55,.2);
+  if(hat.name==='Cap'){
+    const dome=new THREE.Mesh(new THREE.SphereGeometry(.43,12,8,0,Math.PI*2,0,Math.PI*.55),color);dome.position.y=2.82;group.add(dome);
+    addBox(group,.56,.08,.38,hat.color,0,2.75,.34);
+  }else if(hat.name==='Horns'||hat.name==='Antlers'){
+    for(const side of [-1,1]){
+      const horn=new THREE.Mesh(new THREE.ConeGeometry(hat.name==='Horns'?.13:.11,hat.name==='Horns'?.65:.9,7),color);horn.position.set(side*.3,3.16,0);horn.rotation.z=side*-.35;group.add(horn);
+      if(hat.name==='Antlers'){const branch=new THREE.Mesh(new THREE.ConeGeometry(.07,.38,6),color);branch.position.set(side*.49,3.22,.02);branch.rotation.z=side*.9;group.add(branch)}
+    }
+  }else if(hat.name.includes('Halo')||hat.name==='Orbit Halo'){
+    const ring=new THREE.Mesh(new THREE.TorusGeometry(.5,.055,8,32),color);ring.position.y=3.25;ring.rotation.x=Math.PI/2;group.add(ring);
+    if(hat.name==='Orbit Halo'){const orb=new THREE.Mesh(new THREE.SphereGeometry(.12,8,8),color);orb.position.set(.48,3.3,0);group.add(orb)}
+  }else if(hat.name.includes('Crown')){
+    addBox(group,.76,.12,.55,hat.color,0,2.96,0);
+    for(let i=-2;i<=2;i++){const peak=new THREE.Mesh(new THREE.ConeGeometry(.09,.28,5),color);peak.position.set(i*.14,3.15,.03);group.add(peak)}
+  }else if(hat.name==='Wizard'){
+    const cone=new THREE.Mesh(new THREE.ConeGeometry(.48,.78,8),color);cone.position.y=3.25;group.add(cone);addBox(group,1,.09,.72,hat.color,0,2.91,0);
+  }else if(hat.name==='Bandana'){
+    addBox(group,.83,.18,.77,hat.color,0,2.56,.18);const tail=addBox(group,.18,.42,.11,hat.color,.43,2.43,-.16);tail.rotation.z=-.35;
+  }else if(hat.name==='Headset'){
+    const band=new THREE.Mesh(new THREE.TorusGeometry(.4,.07,8,24,Math.PI),color);band.position.y=2.76;band.rotation.z=Math.PI;group.add(band);
+    for(const side of [-1,1]){const cup=new THREE.Mesh(new THREE.BoxGeometry(.15,.32,.22),dark);cup.position.set(side*.39,2.61,0);group.add(cup)}
+  }else if(hat.name==='Chrome Visor'||hat.name==='Signal Visor'||hat.name==='Royal Mask'){
+    const visor=new THREE.Mesh(new THREE.BoxGeometry(.88,.28,.16),color);visor.position.set(0,2.56,.41);group.add(visor);
+    if(hat.name==='Royal Mask')addBox(group,.28,.45,.12,hat.color,0,2.3,.4);
+  }else if(hat.name==='Angel Wings'){
+    for(const side of [-1,1]){const wing=new THREE.Mesh(new THREE.ConeGeometry(.36,.95,5),color);wing.position.set(side*.55,2.35,-.48);wing.rotation.z=side*Math.PI/2;wing.rotation.x=-.4;group.add(wing)}
+  }else if(hat.name==='Neon Helmet'||hat.name==='Containment Hood'){
+    const shell=new THREE.Mesh(new THREE.SphereGeometry(.46,12,9,0,Math.PI*2,0,Math.PI*.62),color);shell.position.y=2.78;group.add(shell);
+    addBox(group,.8,.12,.18,hat.color,0,2.58,.36);
+  }
+  actor.add(group);actor.userData.cosmeticHat=group;
+}
 function setupPlayerModel(){
   if(playerModel)removeEntity(playerModel);
   const skin=SKINS.find(s=>s.name===state.skin)||SKINS[0];
-  playerModel=createActor({isPlayer:true,color:skin.color});playerModel.position.set(0,groundHeight(0,0),0);scene.add(playerModel);
+  playerModel=createActor({isPlayer:true,color:skin.color});applyPlayerCosmetics(playerModel);playerModel.position.set(0,groundHeight(0,0),0);scene.add(playerModel);
 }
 boot();
