@@ -876,21 +876,38 @@ function projectileBlocked(pos,damage,owner){
   }
   return false;
 }
+function segmentClosestPoint(start,end,point){
+  const segment=end.clone().sub(start),lengthSq=segment.lengthSq();
+  const t=lengthSq>0?clamp(point.clone().sub(start).dot(segment)/lengthSq,0,1):0;
+  return start.clone().addScaledVector(segment,t);
+}
 function updateProjectiles(dt){
   for(let i=state.bullets.length-1;i>=0;i--){
-    const b=state.bullets[i];b.mesh.position.addScaledVector(b.dir,b.speed*dt);b.life-=dt;
+    const b=state.bullets[i],start=b.mesh.position.clone();
+    const travel=b.speed*dt,end=start.clone().addScaledVector(b.dir,travel);
+    b.mesh.position.copy(end);b.life-=dt;
     let remove=b.life<=0;
     if(!remove){
-      const pos=b.mesh.position;
-      if(projectileBlocked(pos,b.damage,b.owner))remove=true;
-      if(!remove&&b.remote){
-        if(dist2(pos,state.player.position)<1.25&&Math.abs(pos.y-(state.player.position.y+1.2))<2.4){damageActor(state.player,b.damage,null);remove=true}
-      }else if(!remove){
+      const steps=Math.max(1,Math.ceil(travel/.55));
+      for(let n=1;n<=steps;n++){
+        const sample=start.clone().lerp(end,n/steps);
+        if(projectileBlocked(sample,b.damage,b.owner)){remove=true;break}
+      }
+    }
+    if(!remove){
+      if(b.remote){
+        const closest=segmentClosestPoint(start,end,state.player.position.clone().add(new THREE.Vector3(0,1.2,0)));
+        if(Math.hypot(closest.x-state.player.position.x,closest.z-state.player.position.z)<1.15&&Math.abs(closest.y-(state.player.position.y+1.2))<2.3){
+          damageActor(state.player,b.damage,null);remove=true;
+        }
+      }else{
         const targets=b.owner===state.player?[...state.bots,...state.bosses]:b.owner?.userData.isBoss?[state.player,...state.bots]:[state.player,...state.bots.filter(a=>a!==b.owner),...state.bosses];
         for(const target of targets){
           if(!target||target.userData.dead||!target.visible)continue;
-          const d=Math.hypot(pos.x-target.position.x,pos.z-target.position.z);
-          if(d< (target.userData.isBoss?2.2:1.05)&&Math.abs(pos.y-(target.position.y+1.2))<(target.userData.isBoss?3.1:2.1)){
+          const targetPoint=target.position.clone().add(new THREE.Vector3(0,target.userData.isBoss?2.2:1.2,0));
+          const closest=segmentClosestPoint(start,end,targetPoint);
+          const radius=target.userData.isBoss?2.25:1.05;
+          if(Math.hypot(closest.x-target.position.x,closest.z-target.position.z)<radius&&Math.abs(closest.y-targetPoint.y)<(target.userData.isBoss?3.2:2.2)){
             damageActor(target,b.damage,b.owner);remove=true;break;
           }
         }
