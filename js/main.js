@@ -146,6 +146,7 @@ function loadSave(){
     if(saved.challenge)Object.assign(state.challenge,saved.challenge);
   }catch(e){console.warn('Save data could not be read',e)}
   state.level=Math.max(1,Math.floor(state.xp/500)+1);
+  $('fps-counter').classList.toggle('hidden',!state.settings.showFps);
   if(!state.ownedSkins.includes('Blaze'))state.ownedSkins.unshift('Blaze');
   if(!state.ownedSkins.includes(state.skin))state.skin='Blaze';
   updateProfile();
@@ -640,7 +641,7 @@ function damageActor(actor,amount,owner=null){
   if(actor===state.player&&state.invulnerable>0)return;
   let damage=amount;
   if(actor===state.player&&state.shard&&state.elapsed<state.shardActiveUntil){if(state.shard==='bulwark')damage*=.82;if(state.shard==='pulseguard')damage*=.92;if(state.shard==='overdrive')damage*=1.1;}
-  if(actor!==state.player&&ud.shardType&&state.elapsed<ud.shardActiveUntil){if(ud.shardType==='bulwark')damage*=.82;if(ud.shardType==='pulseguard')damage*=.92;if(ud.shardType==='overdrive')damage*=1.1;}
+  if(actor!==state.player&&ud.shardType&&state.elapsed<ud.shardActiveUntil){if(ud.shardType==='bulwark')damage*=.82;if(ud.shardType==='pulseguard')damage*=.92;if(ud.shardType==='phase')damage*=.9;if(ud.shardType==='overdrive')damage*=1.1;}
   let rest=damage;
   if(ud.shield>0){const n=Math.min(ud.shield,rest);ud.shield-=n;rest-=n}
   ud.health=Math.max(0,ud.health-rest);
@@ -745,7 +746,7 @@ function updatePlayer(dt){
   const movement=f.multiplyScalar(forward).add(right.multiplyScalar(sideways));
   const moving=movement.lengthSq()>0&&!using;
   if(moving){
-    movement.normalize();const speed=(state.keys.ShiftLeft||state.keys.ShiftRight?8.6:6.2)*(state.shard==='phase'&&state.elapsed<state.shardActiveUntil?1.45:state.shard==='kinetic'&&state.elapsed<state.shardActiveUntil?1.2:1);
+    movement.normalize();const activeShard=state.shard&&state.elapsed<state.shardActiveUntil?state.shard:null;const shardSpeed=activeShard==='phase'?1.45:activeShard==='kinetic'?1.2:activeShard==='aegis'?.88:1;const speed=(state.keys.ShiftLeft||state.keys.ShiftRight?8.6:6.2)*shardSpeed;
     moveActor(p,movement.x*speed*dt,movement.z*speed*dt);
   }
   const gy=groundHeight(p.position.x,p.position.z);
@@ -1169,6 +1170,7 @@ function tick(dt){
 function loop(t){
   requestAnimationFrame(loop);
   const dt=Math.min(.04,Math.max(0,(t-state.last)/1000||0));state.last=t;
+  state.fpsFrames++;state.fpsTime+=dt;if(state.fpsTime>=.5){state.fps=state.fpsFrames/state.fpsTime;state.fpsFrames=0;state.fpsTime=0;}
   if(state.running)tick(dt);
   if(coreMesh){coreMesh.rotation.y+=dt*.55;coreMesh.rotation.x+=dt*.18;coreRing.rotation.z+=dt*.35}
   updateCamera(dt);
