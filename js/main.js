@@ -772,6 +772,7 @@ function updateBots(dt){
     }
     target=ud.target;let moving=false;
     if(state.mode==='br'&&ud.shardType&&state.elapsed>=ud.shardCooldownUntil&&(ud.health<65||target&&dist2(bot.position,target.position)<55))activateBotShard(bot);
+    if(ud.shardType==='vitalflow'&&state.elapsed<ud.shardActiveUntil){ud.health=Math.min(100,ud.health+3*dt);ud.shield=Math.min(100,ud.shield+2*dt)}
     if(target&&!target.userData.dead){
       const dx=target.position.x-bot.position.x,dz=target.position.z-bot.position.z,d=Math.max(.1,Math.hypot(dx,dz));
       const yaw=Math.atan2(dx,dz);bot.rotation.y=yaw;
@@ -781,8 +782,9 @@ function updateBots(dt){
       else if(d<close*.58){mx=-dx/d;mz=-dz/d}
       const strafe=Math.sin(state.elapsed*1.7+ud.phase)*.35;
       mx+=Math.cos(yaw)*strafe;mz-=Math.sin(yaw)*strafe;
-      const m=Math.hypot(mx,mz)||1;const sp=ud.speed*(ud.health<45?1.12:1);
+      const m=Math.hypot(mx,mz)||1;let shardSpeed=1;if(ud.shardType&&state.elapsed<ud.shardActiveUntil){if(ud.shardType==='phase')shardSpeed=1.45;if(ud.shardType==='kinetic')shardSpeed=1.2;if(ud.shardType==='aegis')shardSpeed=.88}const sp=ud.speed*(ud.health<45?1.12:1)*shardSpeed;
       if(d>9||Math.abs(strafe)>.2){moveActor(bot,mx/m*sp*dt,mz/m*sp*dt);moving=true}
+      if(state.mode==='box'){const wanted=d<19?2:3;if(ud.weaponId!==wanted){ud.weaponId=wanted;ud.ammo=WEAPONS[wanted].mag;ud.reloadTimer=0}}
       const weapon=WEAPONS[ud.weaponId]||WEAPONS[0];
       if(d<weapon.range*.72&&ud.shootTimer<=0){
         if(ud.ammo<=0){ud.reloadTimer=weapon.reload;ud.ammo=weapon.mag}
@@ -915,6 +917,7 @@ function updateStorm(dt){
   const d=Math.hypot(state.player.position.x-s.cx,state.player.position.z-s.cz);
   if(d>s.radius){s.damageTick+=dt;if(s.damageTick>=1){s.damageTick=0;damageActor(state.player,2+s.phase*1.6,null);if(Math.random()<.1)toast('YOU ARE IN THE STORM')}}
   else s.damageTick=0;
+  for(const bot of state.bots){if(bot.userData.dead)continue;const outside=Math.hypot(bot.position.x-s.cx,bot.position.z-s.cz)>s.radius;bot.userData.stormTick=(bot.userData.stormTick||0)+(outside?dt:0);if(!outside)bot.userData.stormTick=0;if(bot.userData.stormTick>=1){bot.userData.stormTick=0;damageActor(bot,2+s.phase*1.6,null)}}
   $('zone-status').innerHTML='<i></i> '+(s.timer>22?'STORM EYE MOVES IN ':'STORM SHRINKING · ')+formatTime(Math.max(0,s.timer));
 }
 function applyRemoteState(data){
