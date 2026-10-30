@@ -661,7 +661,6 @@ function fireWeapon(actor,remoteShot=false){
 function spawnProjectile(origin,dir,damage,color,speed,life,owner,remote=false){
   const mesh=new THREE.Mesh(new THREE.SphereGeometry(remote ? .11 : .09,7,6),new THREE.MeshBasicMaterial({color:color,transparent:true,opacity:.95}));
   mesh.position.copy(origin);scene.add(mesh);
-  const light=new THREE.PointLight(color,remote?.5:.35,3);mesh.add(light);
   state.bullets.push({mesh,dir:dir.clone().normalize(),damage,color,speed,life,owner,remote});
 }
 function startReload(){
