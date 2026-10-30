@@ -102,6 +102,7 @@ const BUILD_STYLES = [
   {name:'Pulse Glass',color:0x55e9ff,cost:2600},{name:'Void Rift',color:0x8b55ff,cost:3200},
   {name:'Toxic Circuit',color:0x65f078,cost:3800},{name:'Royal Prism',color:0xe3b6ff,cost:4500}
 ];
+const ROULETTE_ORDER = [29,28,30,13,27,3,5,17,15,25,1,19,11,10,24,2,12,26,16,6,20,8,22,9,23,18,4,7,21,14,0];
 const NAMES = ['RiftRunner','NovaByte','CrateKing','Minty','Vex','PixelPilot','Drift','Static','Echo','Rogue','Mako','Kairo','Sparrow','Juno','Hex','Orbit','Frostbite','Talon','Blitz','Kinetic','Rook','Comet','Axel'];
 
 const state = {
@@ -110,7 +111,7 @@ const state = {
   player:null,bots:[],bosses:[],bullets:[],loot:[],particles:[],trailAt:0,builds:[],colliders:[],remotePlayers:new Map(),
   slots:[],selected:0,mouseDown:false,keys:{},cameraYaw:0,cameraPitch:-.08,
   storm:{phase:0,radius:145,start:145,target:145,timer:42,elapsed:0,damageTick:0,cx:0,cz:0},
-  box:{round:1,playerScore:0,botScore:0,roundEnded:false,nextRoundAt:0,totalKills:0},
+  box:{round:1,playerScore:0,botScore:0,roundEnded:false,nextRoundAt:0,totalKills:0},roulette:{index:0,kills:0,deaths:0,respawnAt:0,timeLimit:300},botRespawns:[],
   shard:null,shardActiveUntil:0,shardCooldownUntil:0,dashes:0,dashChargeAt:0,
   itemUse:null,reloadTimer:0,fireTimer:0,jumpVelocity:0,wasMoving:false,tipTimer:0,
   coins:0,xp:0,level:1,totalKills:0,wins:0,matches:0,skin:'Blaze',ownedSkins:['Blaze'],hat:'None',ownedHats:['None'],trail:'Default',ownedTrails:['Default'],buildStyle:'Oak',ownedBuilds:['Oak'],premiumPass:false,
@@ -494,8 +495,8 @@ function setupPlayer(){
   addActorToWorld(state.player,0,0);
 }
 function resetPlayerStats(){
-  state.health=100;state.shield=state.mode==='box'?100:Math.min(25,state.upgrades.health*5);state.wood=250+state.upgrades.wood*25;state.medkits=0;state.shields=0;state.chugs=0;state.splashes=0;
-  state.slots=state.mode==='box'?[createWeaponSlot(3),createWeaponSlot(2)]:[createWeaponSlot(0)];
+  state.health=100;state.shield=state.mode==='box'?100:state.mode==='roulette'?50:Math.min(25,state.upgrades.health*5);state.wood=250+state.upgrades.wood*25;state.medkits=0;state.shields=0;state.chugs=0;state.splashes=0;
+  state.slots=state.mode==='box'?[createWeaponSlot(3),createWeaponSlot(2)]:state.mode==='roulette'?[createWeaponSlot(ROULETTE_ORDER[0])]:[createWeaponSlot(0)];
   state.selected=0;state.reloadTimer=0;state.itemUse=null;state.fireTimer=0;state.invulnerable=2;
   state.shard=null;state.shardActiveUntil=0;state.shardCooldownUntil=0;state.dashes=0;state.dashChargeAt=0;
   state.player.userData.health=100;state.player.userData.shield=state.shield;state.player.userData.dead=false;state.player.visible=true;
@@ -503,7 +504,7 @@ function resetPlayerStats(){
 }
 function startMatch(mode,fromRoom=false){
   if(!scene)return;
-  state.mode=mode==='box'?'box':'br';state.running=true;state.paused=false;state.elapsed=0;state.kills=0;
+  state.mode=mode==='box'?'box':mode==='roulette'?'roulette':'br';state.running=true;state.paused=false;state.elapsed=0;state.kills=0;state.botRespawns=[];state.roulette={index:0,kills:0,deaths:0,respawnAt:0,timeLimit:300};
   clearMatchEntities();setupPlayer();resetPlayerStats();
   state.storm={phase:0,radius:145,start:145,target:145,timer:42,elapsed:0,damageTick:0,cx:0,cz:0};
   state.box={round:1,playerScore:0,botScore:0,roundEnded:false,nextRoundAt:0,totalKills:0};
@@ -514,12 +515,18 @@ function startMatch(mode,fromRoom=false){
     const drop=randomSpawn(55,108);state.player.position.set(drop.x,groundHeight(drop.x,drop.z)+.05,drop.z);if(playerModel)playerModel.visible=false;
     state.cameraYaw=Math.atan2(-drop.x,-drop.z);
     setTip('Drop into the island. Find weapons, gather shields and survive the storm.');
-  }else{
+  }else if(state.mode==='box'){
     if(!state.boxArenaBuilt){buildBoxArena();state.boxArenaBuilt=true;}startBoxRound(true);if(playerModel)playerModel.visible=false;
     setTip('BOX FIGHTS · Build, edit and win five rounds. You start with an AR and a shotgun.');
+  }else{
+    for(let i=0;i<23;i++)spawnBot(i);
+    const drop=randomSpawn(35,90);state.player.position.set(drop.x,groundHeight(drop.x,drop.z)+.05,drop.z);if(playerModel)playerModel.visible=false;
+    state.cameraYaw=Math.atan2(-drop.x,-drop.z);
+    state.slots=[createWeaponSlot(ROULETTE_ORDER[0])];state.selected=0;state.player.userData.weaponId=ROULETTE_ORDER[0];state.player.userData.ammo=WEAPONS[ROULETTE_ORDER[0]].mag;
+    updateWeaponVisual(state.player,ROULETTE_ORDER[0]);setTip('PURE WEAPON ROULETTE · EACH ELIMINATION ADVANCES YOUR WEAPON · FIRST TO 30');
   }
   hide('menu');hide('result-overlay');hide('pause-overlay');hide('lobby');show('game-hud');
-  $('round-chip').classList.toggle('hidden',state.mode!=='box');
+  $('round-chip').classList.toggle('hidden',state.mode==='br');$('round-chip').querySelector('small').textContent=state.mode==='roulette'?'KILLS / 30':'ROUND';
   $('boss-hud').classList.toggle('hidden',state.mode!=='br');
   state.last=performance.now();state.menuTime=0;state.saveTimer=0;
   updateHud(true);
@@ -1208,7 +1215,7 @@ function updateHud(force=false){
   $('elim-count').textContent=state.kills;$('wood-count').textContent=state.wood;
   $('med-count').textContent=state.medkits;$('shield-pot-count').textContent=state.shields;$('chug-count').textContent=state.chugs;$('splash-count').textContent=state.splashes;
   $('shard-count').textContent=state.shard?state.shard.toUpperCase():'—';$('dash-count').textContent='DASH '+state.dashes;
-  $('round-score').textContent=state.box.playerScore+' - '+state.box.botScore;
+  $('round-score').textContent=state.mode==='roulette'?state.kills+' / 30':state.box.playerScore+' - '+state.box.botScore;
   $('hotbar').innerHTML=Array.from({length:5},(_,i)=>{
     const s=state.slots[i],w=s?WEAPONS[s.id]:null;
     return '<div class="hotbar-slot '+(state.selected===i?'active':'')+'"><b>'+(i+1)+'</b>'+(w?'<img src="'+asset(w.icon)+'" alt=""><span>'+escapeText(w.name)+'</span><small>'+s.ammo+' / '+w.mag+'</small>':'<span>EMPTY</span>')+'</div>';
@@ -1268,6 +1275,7 @@ function tick(dt){
     if(state.box.playerScore>=5||state.box.botScore>=5)finishMatch(state.box.playerScore>=5);
     else{state.box.round++;startBoxRound();toast('ROUND '+state.box.round+' · FIGHT!')}
   }
+  if(state.mode==='roulette')updateRoulette(dt);
   if(state.mode==='br'&&state.elapsed>20&&state.bots.filter(b=>!b.userData.dead).length===0)finishMatch(true);
   updateAnimations(dt);
   if(state.elapsed-lastNetUpdate>.1){lastNetUpdate=state.elapsed;sendNetState()}
