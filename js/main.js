@@ -109,7 +109,7 @@ const state = {
   mode:'br',running:false,paused:false,elapsed:0,last:0,fps:60,fpsFrames:0,fpsTime:0,
   kills:0,alive:24,health:100,shield:0,wood:250,medkits:0,shields:0,chugs:0,splashes:0,
   player:null,bots:[],bosses:[],bullets:[],loot:[],particles:[],trailAt:0,builds:[],colliders:[],remotePlayers:new Map(),
-  slots:[],selected:0,editingWall:null,mouseDown:false,keys:{},cameraYaw:0,cameraPitch:-.08,
+  slots:[],selected:0,editingWall:null,touchMove:null,touchLook:null,mouseDown:false,keys:{},cameraYaw:0,cameraPitch:-.08,
   storm:{phase:0,radius:145,start:145,target:145,timer:42,elapsed:0,damageTick:0,cx:0,cz:0},
   box:{round:1,playerScore:0,botScore:0,roundEnded:false,nextRoundAt:0,totalKills:0},roulette:{index:0,kills:0,deaths:0,respawnAt:0,timeLimit:300},botRespawns:[],
   shard:null,shardActiveUntil:0,shardCooldownUntil:0,dashes:0,dashChargeAt:0,
@@ -1419,12 +1419,38 @@ function initEvents(){
   document.querySelectorAll('[data-wall-edit]').forEach(btn=>btn.onclick=()=>applyWallEdit(btn.dataset.wallEdit));
   $('quit-button').onclick=returnToMenu;
   $('play-again').onclick=()=>startMatch(state.mode);$('result-menu').onclick=returnToMenu;
-  $('game-canvas').addEventListener('pointerdown',e=>{
+  const canvas=$('game-canvas');
+  canvas.addEventListener('pointerdown',e=>{
     if(!state.running||state.paused)return;
-    if(document.pointerLockElement!==$('game-canvas')){$('game-canvas').requestPointerLock?.();return}
+    if(e.pointerType==='touch'){
+      e.preventDefault();canvas.setPointerCapture?.(e.pointerId);
+      if(e.clientX<innerWidth*.48){
+        state.touchMove={id:e.pointerId,x:e.clientX,y:e.clientY};
+        const stick=$('move-stick');stick.style.left=e.clientX+'px';stick.style.top=e.clientY+'px';stick.classList.remove('hidden');
+      }else state.touchLook={id:e.pointerId,x:e.clientX,y:e.clientY};
+      return;
+    }
+    if(document.pointerLockElement!==canvas){canvas.requestPointerLock?.();return}
     if(e.button===0){state.mouseDown=true;fireWeapon(state.player)}
   });
-  window.addEventListener('pointerup',()=>state.mouseDown=false);
+  canvas.addEventListener('pointermove',e=>{
+    if(!state.running||state.paused)return;
+    if(state.touchMove?.id===e.pointerId){
+      const dx=e.clientX-state.touchMove.x,dy=e.clientY-state.touchMove.y;
+      const dead=12;state.keys.KeyA=dx< -dead;state.keys.KeyD=dx>dead;state.keys.KeyW=dy< -dead;state.keys.KeyS=dy>dead;
+      const stick=$('move-stick');stick.style.setProperty('--stick-x',clamp(dx,-45,45)+'px');stick.style.setProperty('--stick-y',clamp(dy,-45,45)+'px');
+    }else if(state.touchLook?.id===e.pointerId){
+      const dx=e.clientX-state.touchLook.x,dy=e.clientY-state.touchLook.y;
+      state.cameraYaw-=dx*.005*state.settings.sensitivity;state.cameraPitch=clamp(state.cameraPitch-dy*.0045*state.settings.sensitivity,-.5,.45);
+      state.touchLook.x=e.clientX;state.touchLook.y=e.clientY;
+    }
+  });
+  const endTouch=e=>{
+    if(state.touchMove?.id===e.pointerId){state.touchMove=null;state.keys.KeyA=state.keys.KeyD=state.keys.KeyW=state.keys.KeyS=false;state.keys.ShiftLeft=false;$('move-stick').classList.add('hidden');$('move-stick').style.setProperty('--stick-x','0px');$('move-stick').style.setProperty('--stick-y','0px')}
+    if(state.touchLook?.id===e.pointerId)state.touchLook=null;
+  };
+  canvas.addEventListener('pointerup',endTouch);canvas.addEventListener('pointercancel',endTouch);
+  window.addEventListener('pointerup',e=>{state.mouseDown=false;if(state.touchMove?.id===e.pointerId||state.touchLook?.id===e.pointerId){if(state.touchMove){state.keys.KeyA=state.keys.KeyD=state.keys.KeyW=state.keys.KeyS=false;$('move-stick').classList.add('hidden')}state.touchMove=null;state.touchLook=null}});
   document.addEventListener('pointerlockchange',()=>{if(document.pointerLockElement!==$('game-canvas'))state.mouseDown=false});
   document.addEventListener('mousemove',e=>{
     if(!state.running||state.paused||document.pointerLockElement!==$('game-canvas'))return;
@@ -1452,7 +1478,7 @@ function initEvents(){
   window.addEventListener('keyup',e=>state.keys[e.code]=false);
   document.querySelectorAll('[data-touch]').forEach(btn=>{
     const action=btn.dataset.touch;
-    btn.addEventListener('pointerdown',e=>{e.preventDefault();if(action==='fire'){state.mouseDown=true;fireWeapon(state.player)}if(action==='jump')state.keys.Space=true;if(action==='build')buildWall();if(action==='pickup')pickupNearest();if(action==='dash')pulseDash()});
+    btn.addEventListener('pointerdown',e=>{e.preventDefault();if(action==='fire'){state.mouseDown=true;fireWeapon(state.player)}if(action==='jump')state.keys.Space=true;if(action==='build')buildWall();if(action==='pickup')pickupNearest();if(action==='dash')pulseDash();if(action==='reload')startReload();if(action==='next')switchWeapon((state.selected+1)%Math.max(1,state.slots.length))});
     btn.addEventListener('pointerup',()=>{if(action==='fire')state.mouseDown=false;if(action==='jump')state.keys.Space=false});
     btn.addEventListener('pointerleave',()=>{if(action==='fire')state.mouseDown=false});
   });
