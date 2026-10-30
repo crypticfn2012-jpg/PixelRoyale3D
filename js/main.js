@@ -132,6 +132,33 @@ const vMove = new THREE.Vector3();
 const vAim = new THREE.Vector3();
 const vTemp = new THREE.Vector3();
 const materialCache = new Map();
+let audioContext=null,audioMaster=null;
+function ensureAudio(){
+  const AudioCtor=window.AudioContext||window.webkitAudioContext;if(!AudioCtor)return null;
+  if(!audioContext){
+    audioContext=new AudioCtor();audioMaster=audioContext.createGain();audioMaster.gain.value=.22;audioMaster.connect(audioContext.destination);
+  }
+  if(audioContext.state==='suspended')audioContext.resume().catch(()=>{});
+  return audioContext;
+}
+function playSfx(kind,detail=null){
+  const ctx=ensureAudio();if(!ctx||!audioMaster)return;
+  const now=ctx.currentTime,osc=ctx.createOscillator(),gain=ctx.createGain(),filter=ctx.createBiquadFilter();
+  let start=180,end=90,duration=.1,volume=.18,wave='triangle';
+  if(kind==='shot'){start=detail?.pulse?420:135;end=detail?.pulse?160:48;duration=detail?.pulse?.095:.07;volume=.09;wave=detail?.pulse?'sawtooth':'square'}
+  if(kind==='pickup'){start=540;end=860;duration=.16;volume=.13;wave='sine'}
+  if(kind==='hit'){start=660;end=390;duration=.09;volume=.1;wave='triangle'}
+  if(kind==='boss'){start=115;end=42;duration=.42;volume=.18;wave='sawtooth'}
+  if(kind==='heal'){start=360;end=740;duration=.3;volume=.11;wave='sine'}
+  if(kind==='build'){start=190;end=310;duration=.12;volume=.12;wave='square'}
+  if(kind==='start'){start=240;end=580;duration=.32;volume=.12;wave='triangle'}
+  if(kind==='win'){start=440;end=990;duration=.65;volume=.14;wave='sine'}
+  if(kind==='lose'){start=210;end=65;duration=.38;volume=.1;wave='triangle'}
+  osc.type=wave;osc.frequency.setValueAtTime(Math.max(1,start),now);osc.frequency.exponentialRampToValueAtTime(Math.max(1,end),now+duration);
+  filter.type='lowpass';filter.frequency.setValueAtTime(kind==='shot'?1900:1200,now);filter.frequency.exponentialRampToValueAtTime(kind==='shot'?450:600,now+duration);
+  gain.gain.setValueAtTime(.0001,now);gain.gain.exponentialRampToValueAtTime(volume,now+.012);gain.gain.exponentialRampToValueAtTime(.0001,now+duration);
+  osc.connect(filter);filter.connect(gain);gain.connect(audioMaster);osc.start(now);osc.stop(now+duration+.015);
+}
 
 function mat(color,roughness=.82,metalness=0,emissive=0,emissiveIntensity=0){
   const key=[color,roughness,metalness,emissive,emissiveIntensity].join(':');
@@ -537,7 +564,7 @@ function resetPlayerStats(){
 }
 function startMatch(mode,fromRoom=false){
   if(!scene)return;
-  state.mode=mode==='box'?'box':mode==='roulette'?'roulette':'br';state.running=true;state.paused=false;state.elapsed=0;state.kills=0;state.botRespawns=[];state.roulette={index:0,kills:0,deaths:0,respawnAt:0,timeLimit:300};
+  state.mode=mode==='box'?'box':mode==='roulette'?'roulette':'br';playSfx('start');state.running=true;state.paused=false;state.elapsed=0;state.kills=0;state.botRespawns=[];state.roulette={index:0,kills:0,deaths:0,respawnAt:0,timeLimit:300};
   clearMatchEntities();setupPlayer();resetPlayerStats();
   state.storm={phase:0,radius:145,start:145,target:145,timer:42,elapsed:0,damageTick:0,cx:0,cz:0};
   state.box={round:1,playerScore:0,botScore:0,roundEnded:false,nextRoundAt:0,totalKills:0};
@@ -609,7 +636,7 @@ function endBoxRound(winner){
   if(state.box.playerScore>=5||state.box.botScore>=5)state.box.nextRoundAt=state.elapsed+2.7;
 }
 function finishMatch(win){
-  if(!state.running)return;state.running=false;state.paused=false;state.mouseDown=false;if(state.player)state.player.visible=false;if(playerModel)playerModel.visible=true;
+  if(!state.running)return;playSfx(win?'win':'lose');state.running=false;state.paused=false;state.mouseDown=false;if(state.player)state.player.visible=false;if(playerModel)playerModel.visible=true;
   const box=state.mode==='box',roulette=state.mode==='roulette';
   const coins=box?(state.box.playerScore*35+(win?120:20)):roulette?(win?260:40+state.kills*10):(win?220:35+state.kills*8);
   const xp=box?(win?280:90+state.box.playerScore*30):roulette?(win?500:100+state.kills*25):(win?450:100+state.kills*30);
@@ -637,6 +664,7 @@ function fireWeapon(actor,remoteShot=false){
   if(!slot)return;
   const weapon=WEAPONS[slot.id]||WEAPONS[0],tier=TIERS[slot.tier||0];
   if(weapon.healing){if(isPlayer)usePulseSplash();return}
+  if(isPlayer)playSfx('shot',weapon);
   if(isPlayer&&state.itemUse)return;
   if(isPlayer&&state.reloadTimer>0)return;
   if(slot.ammo<=0){if(isPlayer)startReload();else ud.reloadTimer=weapon.reload;return}
@@ -689,7 +717,7 @@ function reloadAmmoFromLoot(loot){
   if(loot.kind==='weapon')addWeapon(loot.weaponId,loot.tier);
 }
 function collectLoot(loot){
-  if(!loot||!state.player)return;
+  if(!loot||!state.player)return;playSfx('pickup');
   if(loot.kind==='weapon'){addWeapon(loot.weaponId,loot.tier);setTip(TIERS[loot.tier||0].name+' · '+WEAPONS[loot.weaponId].name)}
   else if(loot.kind==='medkit'){state.medkits++;toast('MEDKIT PICKED UP')}
   else if(loot.kind==='shield'){state.shields++;toast('SHIELD POTION PICKED UP')}
@@ -721,7 +749,7 @@ function useConsumable(kind){
 }
 function completeConsumable(){
   if(!state.itemUse)return;const kind=state.itemUse.kind;
-  if(kind==='med')state.health=Math.min(100,state.health+50);
+  playSfx('heal');if(kind==='med')state.health=Math.min(100,state.health+50);
   if(kind==='shield')state.shield=Math.min(100,state.shield+50);
   if(kind==='chug'){state.health=100;state.shield=100}
   state.player.userData.health=state.health;state.player.userData.shield=state.shield;state.itemUse=null;toast('ITEM USED');updateHud(true);
@@ -729,7 +757,7 @@ function completeConsumable(){
 function usePulseSplash(){
   if(!state.running)return;
   const p=state.player.position;
-  state.health=Math.min(100,state.health+30);state.shield=Math.min(100,state.shield+10);state.player.userData.health=state.health;state.player.userData.shield=state.shield;state.dashes=3;state.dashChargeAt=state.elapsed+5;
+  playSfx('heal');state.health=Math.min(100,state.health+30);state.shield=Math.min(100,state.shield+10);state.player.userData.health=state.health;state.player.userData.shield=state.shield;state.dashes=3;state.dashChargeAt=state.elapsed+5;
   const burst=new THREE.Mesh(new THREE.SphereGeometry(1,18,14),new THREE.MeshBasicMaterial({color:0xb95dff,transparent:true,opacity:.22,side:THREE.DoubleSide}));
   burst.position.set(p.x,p.y+1,p.z);scene.add(burst);let size=1;const start=performance.now();
   function expand(){if(!burst.parent)return;size+=.28;burst.scale.setScalar(size);burst.material.opacity=Math.max(0,.24-(performance.now()-start)/850*.24);if(size<13)requestAnimationFrame(expand);else removeEntity(burst)}requestAnimationFrame(expand);
@@ -758,6 +786,7 @@ function pulseDash(){
 
 function damageActor(actor,amount,owner=null){
   if(!actor||actor.userData.dead||amount<=0)return;
+  if(owner===state.player)playSfx('hit');
   const ud=actor.userData;
   if(actor===state.player&&state.invulnerable>0)return;
   let damage=amount;
@@ -839,7 +868,7 @@ function buildWall(){
   const f=new THREE.Vector3(Math.sin(state.cameraYaw),0,Math.cos(state.cameraYaw));
   const x=state.player.position.x+f.x*4,z=state.player.position.z+f.z*4;
   if(state.colliders.some(c=>Math.abs(c.x-x)<(c.w||4)/2+1&&Math.abs(c.z-z)<(c.d||4)/2+1)){toast('BUILD SPACE BLOCKED');return}
-  const wall=createBuildWall(x,z,state.cameraYaw);wall.hp=250;state.wood-=10;
+  const wall=createBuildWall(x,z,state.cameraYaw);wall.hp=250;state.wood-=10;playSfx('build');
   if(state.roomSocket?.readyState===WebSocket.OPEN)state.roomSocket.send(JSON.stringify({type:'build',x,z,yaw:state.cameraYaw}));
   updateHud(true);
 }
@@ -852,6 +881,7 @@ function editNearestWall(){
 }
 function applyWallEdit(pattern){
   const wall=state.editingWall;if(!wall)return;
+  playSfx('build');
   if(pattern==='reset'){
     wall.edited=false;wall.collider.opening=null;
     for(const child of wall.mesh.children)if(child.userData.panel)child.visible=true;
@@ -1031,6 +1061,7 @@ function updateBosses(dt){
   }
 }
 function bossAttack(boss,target){
+  playSfx('boss');
   const ud=boss.userData;target=target&&!target.userData.dead?target:state.player;const dx=target.position.x-boss.position.x,dz=target.position.z-boss.position.z,base=Math.atan2(dx,dz);
   if(ud.bossConfig.attack==='ring'){
     for(let i=0;i<12;i++){const a=i*Math.PI/6;const dir=new THREE.Vector3(Math.sin(a),0,Math.cos(a));spawnProjectile(boss.position.clone().add(new THREE.Vector3(0,2,0)),dir,9,ud.bossConfig.color,34,3,boss,false)}
