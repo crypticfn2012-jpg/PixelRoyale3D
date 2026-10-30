@@ -365,13 +365,13 @@ function spawnBot(i){
   const p=randomSpawn(48,132),weaponPool=[0,1,3,5,11,13,7,8],weaponId=weaponPool[Math.floor(Math.random()*weaponPool.length)];
   const colors=[0xe29d46,0x957ce2,0x5f9a70,0xd36c66,0x59a6c4,0xb4aa5d,0xb66d9a];
   const actor=createActor({isBot:true,name:NAMES[i%NAMES.length],color:colors[i%colors.length],weaponId,health:100,shield:Math.random()<.24?25:0,speed:rand(3.1,4.4)});
-  actor.userData.ammo=WEAPONS[weaponId].mag;actor.userData.botIndex=i;
+  actor.userData.ammo=WEAPONS[weaponId].mag;actor.userData.botIndex=i;actor.userData.tier=randomTier();actor.userData.shardType=null;actor.userData.shardActiveUntil=0;actor.userData.shardCooldownUntil=0;actor.userData.lootThink=0;
   addActorToWorld(actor,p.x,p.z);state.bots.push(actor);
 }
 function spawnBoss(cfg){
   const p=randomSpawn(5,20);const actor=createActor({isBoss:true,name:cfg.name,color:cfg.color,health:760,maxHealth:760,weaponId:cfg.weapon,speed:4.7});
   actor.userData.bossConfig=cfg;actor.userData.attackTimer=2+Math.random();actor.userData.telegraph=0;actor.userData.phase=1;
-  addActorToWorld(actor,cfg.x+rand(-14,14),cfg.z+rand(-14,14));state.bosses.push(actor);
+  let pos=null;for(let i=0;i<90;i++){const a=Math.random()*Math.PI*2,d=25+Math.random()*18,x=cfg.x+Math.cos(a)*d,z=cfg.z+Math.sin(a)*d;if(!collides(x,z,2)){pos={x,z};break}}if(!pos)pos=randomSpawn(75,110);addActorToWorld(actor,pos.x,pos.z);state.bosses.push(actor);
 }
 function makeLootMesh(kind,color){
   const g=new THREE.Group();
@@ -435,8 +435,8 @@ function startMatch(mode,fromRoom=false){
     for(let i=0;i<23;i++)spawnBot(i);
     for(const b of BOSSES)spawnBoss(b);
     spawnWorldLoot(82);
-    state.player.position.set(0,groundHeight(0,0)+.05,0);if(playerModel)playerModel.visible=false;
-    state.cameraYaw=0;
+    const drop=randomSpawn(55,108);state.player.position.set(drop.x,groundHeight(drop.x,drop.z)+.05,drop.z);if(playerModel)playerModel.visible=false;
+    state.cameraYaw=Math.atan2(-drop.x,-drop.z);
     setTip('Drop into the island. Find weapons, gather shields and survive the storm.');
   }else{
     if(!state.boxArenaBuilt){buildBoxArena();state.boxArenaBuilt=true;}startBoxRound(true);if(playerModel)playerModel.visible=false;
@@ -517,11 +517,12 @@ function fireWeapon(actor,remoteShot=false){
   if(isPlayer&&state.reloadTimer>0)return;
   if(slot.ammo<=0){if(isPlayer)startReload();else ud.reloadTimer=weapon.reload;return}
   if(isPlayer&&state.fireTimer>0)return;
-  slot.ammo--;if(isPlayer){state.fireTimer=weapon.rate;ud.ammo=slot.ammo}else ud.ammo=slot.ammo;
+  slot.ammo--;if(isPlayer){const fireMod=state.shard&&state.elapsed<state.shardActiveUntil&&state.shard==='capacitor'?.88:state.shard&&state.elapsed<state.shardActiveUntil&&state.shard==='overclock'?.92:1;state.fireTimer=weapon.rate*fireMod;ud.ammo=slot.ammo}else ud.ammo=slot.ammo;
   const forward=isPlayer?playerForward():new THREE.Vector3(Math.sin(actor.rotation.y),.01,Math.cos(actor.rotation.y)).normalize();
   const origin=actor.position.clone().add(new THREE.Vector3(0,isPlayer?1.5:1.45,0)).add(forward.clone().multiplyScalar(.85));
   const spread=weapon.spread*(1-(state.shard==='deadeye'&&state.elapsed<state.shardActiveUntil ? .28 : 0));
-  const shardBoost=state.shard&&state.elapsed<state.shardActiveUntil&&state.shard==='overdrive'?1.18:state.shard&&state.elapsed<state.shardActiveUntil&&state.shard==='pulseSurge'&&weapon.pulse?1.16:1;
+  let shardBoost=state.shard&&state.elapsed<state.shardActiveUntil&&state.shard==='overdrive'?1.18:state.shard&&state.elapsed<state.shardActiveUntil&&state.shard==='pulseSurge'&&weapon.pulse?1.16:state.shard&&state.elapsed<state.shardActiveUntil&&state.shard==='pulseguard'&&weapon.pulse?1.1:1;
+  if(state.shard==='phase'&&state.elapsed<state.shardActiveUntil)shardBoost*=.9;
   for(let i=0;i<weapon.pellets;i++){
     const dir=forward.clone().add(new THREE.Vector3(rand(-spread,spread),rand(-spread,spread),rand(-spread,spread))).normalize();
     const damage=weapon.damage*tier.mult*shardBoost*(isPlayer?1:actor.userData.isBoss?1:0.65);
@@ -635,11 +636,8 @@ function damageActor(actor,amount,owner=null){
   const ud=actor.userData;
   if(actor===state.player&&state.invulnerable>0)return;
   let damage=amount;
-  if(actor===state.player&&state.shard&&state.elapsed<state.shardActiveUntil){
-    if(state.shard==='bulwark')damage*=.82;
-    if(state.shard==='pulseguard')damage*=.92;
-    if(state.shard==='overdrive')damage*=1.1;
-  }
+  if(actor===state.player&&state.shard&&state.elapsed<state.shardActiveUntil){if(state.shard==='bulwark')damage*=.82;if(state.shard==='pulseguard')damage*=.92;if(state.shard==='overdrive')damage*=1.1;}
+  if(actor!==state.player&&ud.shardType&&state.elapsed<ud.shardActiveUntil){if(ud.shardType==='bulwark')damage*=.82;if(ud.shardType==='pulseguard')damage*=.92;if(ud.shardType==='overdrive')damage*=1.1;}
   let rest=damage;
   if(ud.shield>0){const n=Math.min(ud.shield,rest);ud.shield-=n;rest-=n}
   ud.health=Math.max(0,ud.health-rest);
@@ -766,12 +764,13 @@ function updateBots(dt){
     let target=null,best=Infinity;
     if(ud.thinkTimer<=0){
       ud.thinkTimer=.45+Math.random()*.35;
-      const candidates=state.mode==='box'?[state.player]:[state.player,...state.bots.filter(a=>a!==bot&&!a.userData.dead)];
+      const candidates=state.mode==='box'?[state.player]:[state.player,...state.bots.filter(a=>a!==bot&&!a.userData.dead),...state.bosses.filter(a=>!a.userData.dead)];
       for(const a of candidates){if(!a||a===bot||a.userData.dead)continue;const d=dist2(bot.position,a.position);if(d<best&&d<95){best=d;target=a}}
       ud.target=target;
       if(!target){ud.wanderAngle+=rand(-1.5,1.5);ud.targetPoint={x:bot.position.x+Math.cos(ud.wanderAngle)*18,z:bot.position.z+Math.sin(ud.wanderAngle)*18}}
     }
     target=ud.target;let moving=false;
+    if(state.mode==='br'&&ud.shardType&&state.elapsed>=ud.shardCooldownUntil&&(ud.health<65||target&&dist2(bot.position,target.position)<55))activateBotShard(bot);
     if(target&&!target.userData.dead){
       const dx=target.position.x-bot.position.x,dz=target.position.z-bot.position.z,d=Math.max(.1,Math.hypot(dx,dz));
       const yaw=Math.atan2(dx,dz);bot.rotation.y=yaw;
@@ -788,10 +787,17 @@ function updateBots(dt){
         if(ud.ammo<=0){ud.reloadTimer=weapon.reload;ud.ammo=weapon.mag}
         else {ud.ammo--;ud.shootTimer=weapon.rate*rand(1.4,2.3);fireBotAt(bot,target)}
       }
-    }else if(ud.targetPoint){
-      const dx=ud.targetPoint.x-bot.position.x,dz=ud.targetPoint.z-bot.position.z,d=Math.hypot(dx,dz);
-      if(d>2){moveActor(bot,dx/d*ud.speed*.45*dt,dz/d*ud.speed*.45*dt);bot.rotation.y=Math.atan2(dx,dz);moving=true}else ud.targetPoint=null;
+    }else {
+      if(state.mode==='br'&&(!ud.targetLoot||!state.loot.includes(ud.targetLoot)||ud.lootThink<=0)){
+        ud.lootThink=1.2;let pick=null,near=22;for(const l of state.loot){const d=dist2(bot.position,{x:l.x,z:l.z});if(d<near){near=d;pick=l}}ud.targetLoot=pick;ud.targetPoint=pick?{x:pick.x,z:pick.z}:null;
+      }
+      if(ud.targetPoint){const dx=ud.targetPoint.x-bot.position.x,dz=ud.targetPoint.z-bot.position.z,d=Math.hypot(dx,dz);
+        if(d>2){moveActor(bot,dx/d*ud.speed*.55*dt,dz/d*ud.speed*.55*dt);bot.rotation.y=Math.atan2(dx,dz);moving=true}
+        else if(ud.targetLoot&&state.loot.includes(ud.targetLoot)){botCollectLoot(bot,ud.targetLoot);ud.targetLoot=null;ud.targetPoint=null;}
+        else ud.targetPoint=null;
+      }
     }
+    ud.lootThink-=dt;
     if(ud.reloadTimer>0){ud.reloadTimer-=dt;if(ud.reloadTimer<=0)ud.ammo=WEAPONS[ud.weaponId].mag}
     ud.moving=moving;
     if(state.mode==='box'&&target===state.player&&ud.health<52&&Math.random()<dt*.24&&dist2(bot.position,state.player.position)<22){
@@ -799,32 +805,55 @@ function updateBots(dt){
     }
   }
 }
+function botCollectLoot(bot,loot){
+  const ud=bot.userData;
+  if(loot.kind==='weapon'){
+    const current=WEAPONS[ud.weaponId]||WEAPONS[0],candidate=WEAPONS[loot.weaponId]||WEAPONS[0];
+    if((loot.tier||0)>(ud.tier||0)||candidate.damage*candidate.range>current.damage*current.range){ud.weaponId=loot.weaponId;ud.tier=loot.tier||0;ud.ammo=candidate.mag;}
+  }else if(loot.kind==='shard'){ud.shardType=loot.shard.id;ud.shardCooldownUntil=state.elapsed;}
+  else if(loot.kind==='medkit'&&ud.health<75)ud.health=Math.min(100,ud.health+45);
+  else if(loot.kind==='shield'&&ud.shield<55)ud.shield=Math.min(100,ud.shield+45);
+  else if(loot.kind==='chug'&&(ud.health<80||ud.shield<60)){ud.health=100;ud.shield=100}
+  else if(loot.kind==='splash'){ud.health=Math.min(100,ud.health+30);ud.shield=Math.min(100,ud.shield+10);}
+  removeEntity(loot.mesh);state.loot=state.loot.filter(x=>x!==loot);
+}
+function activateBotShard(bot){
+  const ud=bot.userData,shard=SHARDS.find(s=>s.id===ud.shardType);if(!shard)return;
+  ud.shardActiveUntil=state.elapsed+shard.duration;ud.shardCooldownUntil=state.elapsed+shard.cooldown;
+  if(ud.shardType==='aegis')ud.shield=Math.min(100,ud.shield+24);
+  if(ud.shardType==='vitalflow'){ud.health=Math.min(100,ud.health+18);ud.shield=Math.min(100,ud.shield+12)}
+  if(ud.shardType==='medwave')ud.health=Math.min(100,ud.health+30);
+  if(ud.shardType==='shieldwave')ud.shield=Math.min(100,ud.shield+35);
+  if(ud.shardType==='riftstep'||ud.shardType==='dashcore')ud.dashes=3;
+}
 function fireBotAt(bot,target){
   const start=bot.position.clone().add(new THREE.Vector3(0,1.45,0));
   const aim=target.position.clone().add(new THREE.Vector3(0,1.25,0)).sub(start);
   const d=aim.length();aim.normalize();
   const weapon=WEAPONS[bot.userData.weaponId]||WEAPONS[0];
   const spread=weapon.spread*.9;
+  let damage=weapon.damage*.52*TIERS[bot.userData.tier||0].mult;
+  if(bot.userData.shardType&&state.elapsed<bot.userData.shardActiveUntil){if(bot.userData.shardType==='overdrive')damage*=1.18;if(bot.userData.shardType==='phase')damage*=.9;if(bot.userData.shardType==='pulseSurge'&&weapon.pulse)damage*=1.16;if(bot.userData.shardType==='pulseguard'&&weapon.pulse)damage*=1.1}
   for(let i=0;i<Math.max(1,weapon.pellets);i++){
     const dir=aim.clone().add(new THREE.Vector3(rand(-spread,spread),rand(-spread,spread),rand(-spread,spread))).normalize();
-    spawnProjectile(start,dir,weapon.damage*.52,weapon.color,weapon.speed*.82,Math.min(weapon.range/weapon.speed,2),bot,false);
+    spawnProjectile(start,dir,damage,weapon.color,weapon.speed*.82,Math.min(weapon.range/weapon.speed,2),bot,false);
   }
 }
 function updateBosses(dt){
   for(const boss of state.bosses){
     const ud=boss.userData;if(ud.dead)continue;
-    const target=state.player;if(!target||target.userData.dead)continue;
+    const targets=[state.player,...state.bots.filter(b=>!b.userData.dead)];let target=null,best=Infinity;for(const candidate of targets){if(!candidate||candidate.userData.dead)continue;const d=dist2(boss.position,candidate.position);if(d<best){best=d;target=candidate}}if(!target)continue;ud.attackTarget=target;
     const dx=target.position.x-boss.position.x,dz=target.position.z-boss.position.z,d=Math.max(.1,Math.hypot(dx,dz));
     const yaw=Math.atan2(dx,dz);boss.rotation.y=yaw;
     ud.phase=ud.health<ud.maxHealth*.5?2:1;
     if(d>13){moveActor(boss,dx/d*ud.speed*(ud.phase===2?1.25:1)*dt,dz/d*ud.speed*(ud.phase===2?1.25:1)*dt);ud.moving=true}
     ud.attackTimer-=dt;
-    if(ud.telegraph>0){ud.telegraph-=dt;if(ud.telegraph<=0)bossAttack(boss)}
+    if(ud.telegraph>0){ud.telegraph-=dt;if(ud.telegraph<=0)bossAttack(boss,ud.attackTarget||target)}
     else if(ud.attackTimer<=0){ud.telegraph=1.05;setTip(ud.name+' IS CHARGING AN ATTACK');ud.attackTimer=3.25*(ud.phase===2?.78:1)}
   }
 }
-function bossAttack(boss){
-  const ud=boss.userData,target=state.player,dx=target.position.x-boss.position.x,dz=target.position.z-boss.position.z,base=Math.atan2(dx,dz);
+function bossAttack(boss,target){
+  const ud=boss.userData;target=target&&!target.userData.dead?target:state.player;const dx=target.position.x-boss.position.x,dz=target.position.z-boss.position.z,base=Math.atan2(dx,dz);
   if(ud.bossConfig.attack==='ring'){
     for(let i=0;i<12;i++){const a=i*Math.PI/6;const dir=new THREE.Vector3(Math.sin(a),0,Math.cos(a));spawnProjectile(boss.position.clone().add(new THREE.Vector3(0,2,0)),dir,9,ud.bossConfig.color,34,3,boss,false)}
   }else{
@@ -841,7 +870,7 @@ function updateProjectiles(dt){
       if(b.remote){
         if(dist2(pos,state.player.position)<1.25&&Math.abs(pos.y-(state.player.position.y+1.2))<2.4){damageActor(state.player,b.damage,null);remove=true}
       }else{
-        const targets=b.owner===state.player?[...state.bots,...state.bosses]:b.owner?.userData.isBoss?[state.player]:[state.player,...state.bots.filter(a=>a!==b.owner)];
+        const targets=b.owner===state.player?[...state.bots,...state.bosses]:b.owner?.userData.isBoss?[state.player,...state.bots]:[state.player,...state.bots.filter(a=>a!==b.owner),...state.bosses];
         for(const target of targets){
           if(!target||target.userData.dead||!target.visible)continue;
           const d=Math.hypot(pos.x-target.position.x,pos.z-target.position.z);
