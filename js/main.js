@@ -439,7 +439,7 @@ function startMatch(mode,fromRoom=false){
     state.cameraYaw=0;
     setTip('Drop into the island. Find weapons, gather shields and survive the storm.');
   }else{
-    buildBoxArena();startBoxRound(true);if(playerModel)playerModel.visible=false;
+    if(!state.boxArenaBuilt){buildBoxArena();state.boxArenaBuilt=true;}startBoxRound(true);if(playerModel)playerModel.visible=false;
     setTip('BOX FIGHTS · Build, edit and win five rounds. You start with an AR and a shotgun.');
   }
   hide('menu');hide('result-overlay');hide('pause-overlay');hide('lobby');show('game-hud');
@@ -459,12 +459,10 @@ function buildBoxArena(){
     const post=addBox(scene,1.1,5,1.1,0x273b4a,x,groundHeight(x,z)+2.2,z);
     const bar=addBox(scene,1,3.1,1,0x597a82,x,groundHeight(x,z)+6,z);bar.material=mat(0x597a82,.5,.45);
   }
-  for(let i=-1;i<=1;i++){
-    addBox(scene,42,.6,.7,0x526a70,0,groundHeight(0,arenaZ-28)+.1,arenaZ-28);
-    addBox(scene,42,.6,.7,0x526a70,0,groundHeight(0,arenaZ+28)+.1,arenaZ+28);
-    addBox(scene,.7,.6,42,0x526a70,-28,groundHeight(-28,arenaZ)+.1,arenaZ);
-    addBox(scene,.7,.6,42,0x526a70,28,groundHeight(28,arenaZ)+.1,arenaZ);
-  }
+  addBox(scene,42,.6,.7,0x526a70,0,groundHeight(0,arenaZ-28)+.1,arenaZ-28);
+  addBox(scene,42,.6,.7,0x526a70,0,groundHeight(0,arenaZ+28)+.1,arenaZ+28);
+  addBox(scene,.7,.6,42,0x526a70,-28,groundHeight(-28,arenaZ)+.1,arenaZ);
+  addBox(scene,.7,.6,42,0x526a70,28,groundHeight(28,arenaZ)+.1,arenaZ);
   const label=addBox(scene,0.1,0.1,0.1,0xffffff,0,-30,arenaZ,{shadow:false});label.visible=false;
 }
 function startBoxRound(first=false){
@@ -572,6 +570,7 @@ function collectLoot(loot){
   else if(loot.kind==='chug'){state.chugs++;toast('CHUG JUG PICKED UP')}
   else if(loot.kind==='splash'){state.splashes++;toast('PULSE SPLASH PICKED UP')}
   else if(loot.kind==='shard'){state.shard=loot.shard.id;state.dashes=Math.max(state.dashes,loot.shard.id==='dashcore'?1:0);toast(loot.shard.name+' ACQUIRED')}
+  state.challenge.loot++;save();
   removeEntity(loot.mesh);state.loot=state.loot.filter(x=>x!==loot);updateHud(true);
 }
 function pickupNearest(){
@@ -604,7 +603,7 @@ function completeConsumable(){
 function usePulseSplash(){
   if(!state.running)return;
   const p=state.player.position;
-  state.health=Math.min(100,state.health+30);state.shield=Math.min(100,state.shield+10);state.dashes=3;state.dashChargeAt=state.elapsed+5;
+  state.health=Math.min(100,state.health+30);state.shield=Math.min(100,state.shield+10);state.player.userData.health=state.health;state.player.userData.shield=state.shield;state.dashes=3;state.dashChargeAt=state.elapsed+5;
   const burst=new THREE.Mesh(new THREE.SphereGeometry(1,18,14),new THREE.MeshBasicMaterial({color:0xb95dff,transparent:true,opacity:.22,side:THREE.DoubleSide}));
   burst.position.set(p.x,p.y+1,p.z);scene.add(burst);let size=1;const start=performance.now();
   function expand(){if(!burst.parent)return;size+=.28;burst.scale.setScalar(size);burst.material.opacity=Math.max(0,.24-(performance.now()-start)/850*.24);if(size<13)requestAnimationFrame(expand);else removeEntity(burst)}requestAnimationFrame(expand);
@@ -665,7 +664,7 @@ function eliminateActor(actor,owner){
     endBoxRound('player');return;
   }
   if(owner===state.player){
-    state.kills++;state.totalKills++;state.challenge.kills++;addProgress(25,12);
+    state.kills++;state.challenge.kills++;addProgress(25,12);
     $('kill-feed').innerHTML='<div>ELIMINATED · '+escapeText(ud.name)+'</div>'+ $('kill-feed').innerHTML;
     setTimeout(()=>{if($('kill-feed').children.length>4)$('kill-feed').lastElementChild.remove()},3200);
   }
@@ -918,7 +917,7 @@ function connectSocket(url){
         if(data.type==='state')applyRemoteState(data);
         if(data.type==='shots')handleRemoteShot(data);
         if(data.type==='build'&&data.from!==state.roomPlayerId)createBuildWall(data.x,data.z,data.yaw,true);
-        if(data.type==='match_found'){state.roomCode=data.room;$('party-status').textContent='Match found · '+data.room;hide('lobby');startMatch(data.mode,true);toast('MATCH FOUND');}
+        if(data.type==='match_found'){state.roomPlayerId=data.playerId||'';state.roomCode=data.room;$('party-status').textContent='Match found · '+data.room;hide('lobby');startMatch(data.mode,true);toast('MATCH FOUND');}
         if(data.type==='queue_waiting'){$('lobby-status').textContent='Searching for another player...';$('lobby-title').textContent='MATCHMAKING';}
         if(data.type==='error'){$('lobby-status').textContent=data.message||'Room error';$('party-status').textContent=data.message||'Room error'}
       };
