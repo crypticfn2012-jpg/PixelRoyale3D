@@ -1395,13 +1395,14 @@ function returnToMenu(){
   document.exitPointerLock?.();
   clearMatchEntities();
   if(state.player){removeEntity(state.player);state.player=null}
+  state.editingWall=null;hide('edit-selector');
   if(playerModel)playerModel.visible=true;
   hide('result-overlay');hide('pause-overlay');hide('game-hud');hide('lobby');show('menu');
 }
 function pauseMatch(){
   if(!state.running)return;state.paused=!state.paused;
   if(state.paused){show('pause-overlay');document.exitPointerLock?.();state.mouseDown=false}
-  else{hide('pause-overlay');$('game-canvas').requestPointerLock?.()}
+  else{hide('pause-overlay');if(!navigator.maxTouchPoints)$('game-canvas').requestPointerLock?.()}
 }
 function initEvents(){
   document.querySelectorAll('[data-mode]').forEach(btn=>btn.addEventListener('click',()=>{
