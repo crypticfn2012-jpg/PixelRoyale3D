@@ -972,7 +972,7 @@ function connectSocket(url){
         if(data.type==='room_joined'){state.roomPlayerId=data.playerId;state.roomHost=!!data.isHost;state.roomMode=data.mode;state.roomCode=data.room;$('lobby-code').textContent=data.room;$('lobby-title').textContent='PRIVATE PARTY';$('host-mode-wrap').classList.toggle('hidden',!state.roomHost);$('host-start').classList.toggle('hidden',!state.roomHost);$('lobby-status').textContent=state.roomHost?'You are the party leader. Start the match when everyone is ready.':'Connected to the party. Waiting for the host.';renderLobbyPlayers(data.players||[])}
         if(data.type==='lobby_update')renderLobbyPlayers(data.players||[]);
         if(data.type==='player_joined')toast('A player joined the party');
-        if(data.type==='player_left')toast('A player left the party');
+        if(data.type==='player_left'){const actor=state.remotePlayers.get(data.playerId);if(actor)removeEntity(actor);state.remotePlayers.delete(data.playerId);toast('A player left the party');}
         if(data.type==='kicked'){toast('You were removed from the party');socket.close();hide('lobby')}
         if(data.type==='host_changed'){state.roomHost=true;$('host-mode-wrap').classList.remove('hidden');$('host-start').classList.remove('hidden');$('lobby-status').textContent='You are now the party leader.'}
         if(data.type==='lobby_mode'){state.roomMode=data.mode;$('host-mode').value=data.mode}
