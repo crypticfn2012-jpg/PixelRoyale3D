@@ -530,6 +530,7 @@ function startMatch(mode,fromRoom=false){
   $('alive-count').parentElement.querySelector('small').textContent=state.mode==='box'?'PLAYERS':'PLAYERS LEFT';
   if(stormRing)stormRing.visible=state.mode==='br';
   $('boss-hud').classList.toggle('hidden',state.mode!=='br');
+  if(state.mode==='box')$('zone-status').innerHTML='<i></i> BOX FIGHTS · FIRST TO FIVE';
   state.last=performance.now();state.menuTime=0;state.saveTimer=0;
   updateHud(true);
   if(!fromRoom&&state.roomSocket&&state.roomSocket.readyState===WebSocket.OPEN)state.roomSocket.send(JSON.stringify({type:'start_game'}));
@@ -757,6 +758,7 @@ function eliminateActor(actor,owner){
   if(state.mode==='roulette'){
     if(owner===state.player){
       state.kills++;state.roulette.kills++;state.challenge.kills++;addProgress(20,10);
+      const crosshair=document.querySelector('.center-crosshair');crosshair?.classList.add('hit-confirmed');setTimeout(()=>crosshair?.classList.remove('hit-confirmed'),115);
       state.roulette.index=Math.min(ROULETTE_ORDER.length-1,state.roulette.index+1);
       const nextId=ROULETTE_ORDER[state.roulette.index];state.slots=[createWeaponSlot(nextId)];state.selected=0;
       state.player.userData.weaponId=nextId;state.player.userData.ammo=WEAPONS[nextId].mag;updateWeaponVisual(state.player,nextId);
@@ -768,6 +770,7 @@ function eliminateActor(actor,owner){
   }
   if(owner===state.player){
     state.kills++;state.challenge.kills++;addProgress(25,12);
+    const crosshair=document.querySelector('.center-crosshair');crosshair?.classList.add('hit-confirmed');setTimeout(()=>crosshair?.classList.remove('hit-confirmed'),115);
     $('kill-feed').innerHTML='<div>ELIMINATED · '+escapeText(ud.name)+'</div>'+ $('kill-feed').innerHTML;
     setTimeout(()=>{if($('kill-feed').children.length>4)$('kill-feed').lastElementChild.remove()},3200);
   }
@@ -808,6 +811,7 @@ function buildWall(){
   updateHud(true);
 }
 function editNearestWall(){
+  if(state.mode==='roulette'){toast('EDITING IS DISABLED IN PURE WEAPON ROULETTE');return}
   let best=null,d=7;
   for(const w of state.builds){if(w.remote)continue;const n=Math.hypot(w.collider.x-state.player.position.x,w.collider.z-state.player.position.z);if(n<d){best=w;d=n}}
   if(!best){toast('NO WALL CLOSE ENOUGH TO EDIT');return}
@@ -1234,7 +1238,7 @@ function updateHud(force=false){
   $('health-fill').style.width=clamp(state.health,0,100)+'%';$('shield-fill').style.width=clamp(state.shield,0,100)+'%';
   $('health-value').textContent=Math.ceil(state.health);$('shield-value').textContent=Math.ceil(state.shield);
   $('alive-count').textContent=state.mode==='box'?'2':String(Math.max(1,state.bots.filter(b=>!b.userData.dead).length+1));
-  if(state.mode==='roulette')$('alive-count').parentElement.querySelector('small').textContent='ALIVE';
+  $('alive-count').parentElement.querySelector('small').textContent=state.mode==='box'?'PLAYERS':state.mode==='roulette'?'ALIVE':'PLAYERS LEFT';
   $('elim-count').textContent=state.kills;$('wood-count').textContent=state.wood;
   $('med-count').textContent=state.medkits;$('shield-pot-count').textContent=state.shields;$('chug-count').textContent=state.chugs;$('splash-count').textContent=state.splashes;
   $('shard-count').textContent=state.shard?state.shard.toUpperCase():'—';$('dash-count').textContent='DASH '+state.dashes;
@@ -1305,6 +1309,7 @@ function tick(dt){
   updateLoot(dt);
   updateParticles(dt);
   updateStorm(dt);
+  if(state.mode==='box')$('zone-status').innerHTML='<i></i> BOX FIGHTS · ROUND '+state.box.round+' / 5';
   if(state.mode==='box'&&state.box.roundEnded&&state.elapsed>=state.box.nextRoundAt){
     if(state.box.playerScore>=5||state.box.botScore>=5)finishMatch(state.box.playerScore>=5);
     else{state.box.round++;startBoxRound();toast('ROUND '+state.box.round+' · FIGHT!')}
