@@ -418,7 +418,7 @@ function setupPlayer(){
   addActorToWorld(state.player,0,0);
 }
 function resetPlayerStats(){
-  state.health=100;state.shield=state.mode==='box'?100:0;state.wood=250;state.medkits=0;state.shields=0;state.chugs=0;state.splashes=0;
+  state.health=100;state.shield=state.mode==='box'?100:Math.min(25,state.upgrades.health*5);state.wood=250+state.upgrades.wood*25;state.medkits=0;state.shields=0;state.chugs=0;state.splashes=0;
   state.slots=state.mode==='box'?[createWeaponSlot(3),createWeaponSlot(2)]:[createWeaponSlot(0)];
   state.selected=0;state.reloadTimer=0;state.itemUse=null;state.fireTimer=0;state.invulnerable=2;
   state.shard=null;state.shardActiveUntil=0;state.shardCooldownUntil=0;state.dashes=0;state.dashChargeAt=0;
@@ -544,8 +544,9 @@ function spawnProjectile(origin,dir,damage,color,speed,life,owner,remote=false){
 function startReload(){
   const slot=state.slots[state.selected];if(!slot)return;
   const weapon=WEAPONS[slot.id];if(slot.ammo>=weapon.mag||state.reloadTimer>0||state.itemUse)return;
-  const mod=state.shard&&state.elapsed<state.shardActiveUntil&&['quickcycle','overclock'].includes(state.shard)?0.8:1;
-  state.reloadTimer=weapon.reload*mod;setTip('RELOADING · '+weapon.name);
+  const shardMod=state.shard&&state.elapsed<state.shardActiveUntil&&['quickcycle','overclock'].includes(state.shard)?0.8:1;
+  const upgradeMod=Math.max(.8,1-state.upgrades.reload*.04);
+  state.reloadTimer=weapon.reload*shardMod*upgradeMod;setTip('RELOADING · '+weapon.name);
 }
 function finishReload(){
   const slot=state.slots[state.selected];if(!slot)return;slot.ammo=WEAPONS[slot.id].mag;state.player.userData.ammo=slot.ammo;state.reloadTimer=0;toast('RELOADED');
@@ -558,7 +559,8 @@ function addWeapon(id,tier=0){
   const existing=state.slots.findIndex(s=>s.id===id);
   if(existing>=0){state.slots[existing].tier=Math.max(state.slots[existing].tier,tier);state.slots[existing].ammo=WEAPONS[id].mag;return}
   let slot=state.slots.findIndex(s=>!s);
-  if(slot<0)slot=state.selected<state.slots.length?state.selected:0;
+  if(slot<0&&state.slots.length<5)slot=state.slots.length;
+  if(slot<0)slot=state.selected;
   state.slots[slot]=createWeaponSlot(id,tier);switchWeapon(slot);
 }
 function reloadAmmoFromLoot(loot){
