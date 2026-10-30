@@ -1119,23 +1119,35 @@ function hostStart(){
   if(state.roomSocket?.readyState===WebSocket.OPEN)state.roomSocket.send(JSON.stringify({type:'start_game'}));
 }
 
-function openContent(panel){
+function openContent(panel,category='skins'){
   const title=panel.toUpperCase();$('content-title').textContent=title;$('content-kicker').textContent='PIXELROYALE // '+title;
   const body=$('content-body');body.innerHTML='';
   if(panel==='stats'){
     body.innerHTML='<div class="stat-cards"><div class="stat-card"><small>ACCOUNT LEVEL</small><b>'+state.level+'</b></div><div class="stat-card"><small>ELIMINATIONS</small><b>'+state.totalKills+'</b></div><div class="stat-card"><small>VICTORIES</small><b>'+state.wins+'</b></div></div><p class="content-intro">Matches played: '+state.matches+' · Current season: Pulse · XP: '+state.xp+'</p>';
   }else if(panel==='shop'||panel==='locker'){
-    const locker=panel==='locker';const list=SKINS.filter(s=>locker?state.ownedSkins.includes(s.name):!state.ownedSkins.includes(s.name));
-    let html='<p class="content-intro">'+(locker?'Choose an outfit you own. New outfits can be unlocked in the shop.':'Earn coins from matches and unlock new outfits for your locker.')+'</p><div class="store-grid">';
-    for(const s of (locker?SKINS.filter(x=>state.ownedSkins.includes(x.name)):list)){
-      const owned=state.ownedSkins.includes(s.name),equipped=state.skin===s.name;
-      html+='<article class="store-card"><div class="store-art" style="background:radial-gradient(circle,'+colorHex(s.color)+'55,#122337)"><span>PR</span></div><div class="store-info"><b>'+escapeText(s.name)+'</b><small>'+(owned?'OWNED':'OUTFIT · '+s.cost.toLocaleString()+' COINS')+'</small></div><button data-skin="'+escapeText(s.name)+'" '+(equipped?'class="equipped"': '')+' '+(locker&&!owned?'disabled':'')+'>'+(equipped?'EQUIPPED':owned?'EQUIP':'BUY')+'</button></article>';
+    const locker=panel==='locker';
+    const catalog={
+      skins:{label:'OUTFITS',items:SKINS,owned:state.ownedSkins,equipped:state.skin,icon:item=>'<span>PR</span>',equip:item=>{state.skin=item.name;setupMenuPlayerSkin()}},
+      hats:{label:'HATS',items:HATS,owned:state.ownedHats,equipped:state.hat,icon:item=>'<span>'+item.icon+'</span>',equip:item=>{state.hat=item.name;setupMenuPlayerSkin()}},
+      trails:{label:'TRAILS',items:TRAILS,owned:state.ownedTrails,equipped:state.trail,icon:item=>'<span>✦</span>',equip:item=>{state.trail=item.name}},
+      builds:{label:'BUILDS',items:BUILD_STYLES,owned:state.ownedBuilds,equipped:state.buildStyle,icon:item=>'<span>▦</span>',equip:item=>{state.buildStyle=item.name}}
+    };
+    const cat=catalog[category]?category:'skins',cfg=catalog[cat];
+    let html='<div class="cosmetic-tabs">'+Object.entries(catalog).map(([key,value])=>'<button class="cosmetic-tab '+(key===cat?'active':'')+'" data-cosmetic-category="'+key+'">'+value.label+'</button>').join('')+'</div>';
+    html+='<p class="content-intro">'+(locker?'Equip any cosmetic you have unlocked.':'Spend match-earned coins to unlock new outfits, hats, trails and build styles.')+'</p><div class="store-grid">';
+    const visible=locker?cfg.items.filter(item=>cfg.owned.includes(item.name)):cfg.items.filter(item=>!cfg.owned.includes(item.name));
+    if(!visible.length)html+='<p class="content-intro">'+(locker?'No items in this collection yet.':'You have unlocked every item in this collection.')+'</p>';
+    for(const item of visible){
+      const owned=cfg.owned.includes(item.name),equipped=cfg.equipped===item.name;
+      const artColor=item.color,art=cat==='skins'||cat==='trails'||cat==='builds'?'style="background:radial-gradient(circle,'+colorHex(artColor)+'77,#122337)"':'style="background:radial-gradient(circle,'+colorHex(artColor)+'55,#122337)"';
+      html+='<article class="store-card"><div class="store-art" '+art+'>'+cfg.icon(item)+'</div><div class="store-info"><b>'+escapeText(item.name)+'</b><small>'+(owned?'OWNED':cfg.label.slice(0,-1)+' · '+item.cost.toLocaleString()+' COINS')+'</small></div><button data-cosmetic="'+escapeText(item.name)+'" '+(equipped?'class="equipped"':'')+'>'+(equipped?'EQUIPPED':owned?'EQUIP':'BUY')+'</button></article>';
     }
     html+='</div>';body.innerHTML=html;
-    body.querySelectorAll('[data-skin]').forEach(btn=>btn.addEventListener('click',()=>{
-      const s=SKINS.find(x=>x.name===btn.dataset.skin);if(!s)return;
-      if(state.ownedSkins.includes(s.name)){state.skin=s.name;setupMenuPlayerSkin();save();openContent(panel);toast(s.name.toUpperCase()+' EQUIPPED')}
-      else if(state.coins>=s.cost){state.coins-=s.cost;state.ownedSkins.push(s.name);state.skin=s.name;setupMenuPlayerSkin();save();updateProfile();openContent(panel);toast('OUTFIT UNLOCKED')}
+    body.querySelectorAll('[data-cosmetic-category]').forEach(btn=>btn.addEventListener('click',()=>openContent(panel,btn.dataset.cosmeticCategory)));
+    body.querySelectorAll('[data-cosmetic]').forEach(btn=>btn.addEventListener('click',()=>{
+      const item=cfg.items.find(x=>x.name===btn.dataset.cosmetic);if(!item)return;
+      if(cfg.owned.includes(item.name)){cfg.equip(item);save();openContent(panel,cat);toast(item.name.toUpperCase()+' EQUIPPED')}
+      else if(state.coins>=item.cost){state.coins-=item.cost;cfg.owned.push(item.name);cfg.equip(item);save();updateProfile();openContent(panel,cat);toast(item.name.toUpperCase()+' UNLOCKED')}
       else toast('NOT ENOUGH COINS');
     }));
   }else if(panel==='upgrades'){
