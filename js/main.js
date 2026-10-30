@@ -453,7 +453,7 @@ function removeEntity(group){
   if(group?.parent)group.parent.remove(group);
 }
 function spawnBot(i){
-  const p=randomSpawn(48,132),weaponPool=[0,1,3,5,11,13,7,8],weaponId=weaponPool[Math.floor(Math.random()*weaponPool.length)];
+  const p=randomSpawn(48,132),weaponPool=[0,1,3,11,13,7,8],weaponId=weaponPool[Math.floor(Math.random()*weaponPool.length)];
   const colors=[0xe29d46,0x957ce2,0x5f9a70,0xd36c66,0x59a6c4,0xb4aa5d,0xb66d9a];
   const actor=createActor({isBot:true,name:NAMES[i%NAMES.length],color:colors[i%colors.length],weaponId,health:100,shield:Math.random()<.24?25:0,speed:rand(3.1,4.4)});
   actor.userData.ammo=WEAPONS[weaponId].mag;actor.userData.botIndex=i;actor.userData.tier=randomTier();actor.userData.shardType=null;actor.userData.shardActiveUntil=0;actor.userData.shardCooldownUntil=0;actor.userData.lootThink=0;
@@ -476,11 +476,11 @@ function makeLootMesh(kind,color){
 function createLoot(data){
   const color=data.kind==='shard'?new THREE.Color(data.shard.color).getHex():data.kind==='weapon'?TIERS[data.tier||0].color:data.kind==='medkit'?0x4dce76:data.kind==='shield'?0x4cb9ef:data.kind==='chug'?0x9d6cf0:data.kind==='splash'?0xc45aff:0xf2c66d;
   const mesh=makeLootMesh(data.kind,color);const x=data.x,z=data.z;mesh.position.set(x,groundHeight(x,z)+.7,z);scene.add(mesh);
-  state.loot.push({...data,mesh,createdAt:state.elapsed,expiresAt:state.elapsed+85});
+  state.loot.push({...data,mesh,createdAt:state.elapsed,expiresAt:state.elapsed+10});
   return mesh;
 }
 function spawnWorldLoot(count=72){
-  const weaponPool=[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27];
+  const weaponPool=[0,1,2,3,4,6,7,8,10,11,12,13];
   for(let i=0;i<count;i++){
     const p=randomSpawn(8,130),roll=Math.random();
     if(roll<.60){const id=weaponPool[Math.floor(Math.random()*weaponPool.length)];createLoot({kind:'weapon',weaponId:id,tier:randomTier(),x:p.x,z:p.z})}
@@ -945,8 +945,8 @@ function updateBots(dt){
       updateWeaponVisual(bot,ud.weaponId);
       const weapon=WEAPONS[ud.weaponId]||WEAPONS[0];
       if(d<weapon.range*.72&&ud.shootTimer<=0){
-        if(ud.ammo<=0){ud.reloadTimer=weapon.reload;ud.ammo=weapon.mag}
-        else {ud.ammo--;ud.shootTimer=weapon.rate*rand(1.4,2.3);fireBotAt(bot,target)}
+        if(ud.ammo<=0){const reloadMod=ud.shardType&&state.elapsed<ud.shardActiveUntil&&['quickcycle','overclock'].includes(ud.shardType)?.8:1;ud.reloadTimer=weapon.reload*reloadMod;ud.ammo=weapon.mag}
+        else {ud.ammo--;const fireMod=ud.shardType&&state.elapsed<ud.shardActiveUntil&&['capacitor','overclock'].includes(ud.shardType)?(ud.shardType==='capacitor'?.88:.92):1;ud.shootTimer=weapon.rate*rand(1.4,2.3)*fireMod;fireBotAt(bot,target)}
       }
     }else {
       if(state.mode==='br'&&(!ud.targetLoot||!state.loot.includes(ud.targetLoot)||ud.lootThink<=0)){
@@ -992,7 +992,7 @@ function fireBotAt(bot,target){
   const aim=target.position.clone().add(new THREE.Vector3(0,1.25,0)).sub(start);
   const d=aim.length();aim.normalize();
   const weapon=WEAPONS[bot.userData.weaponId]||WEAPONS[0];
-  const spread=weapon.spread*.9;
+  const spread=weapon.spread*.9*(bot.userData.shardType==='deadeye'&&state.elapsed<bot.userData.shardActiveUntil?.72:1);
   let damage=weapon.damage*.52*TIERS[bot.userData.tier||0].mult;
   if(bot.userData.shardType&&state.elapsed<bot.userData.shardActiveUntil){if(bot.userData.shardType==='overdrive')damage*=1.18;if(bot.userData.shardType==='phase')damage*=.9;if(bot.userData.shardType==='pulseSurge'&&weapon.pulse)damage*=1.16;if(bot.userData.shardType==='pulseguard'&&weapon.pulse)damage*=1.1}
   for(let i=0;i<Math.max(1,weapon.pellets);i++){
