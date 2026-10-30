@@ -142,7 +142,7 @@ function ensureAudio(){
   return audioContext;
 }
 function playSfx(kind,detail=null){
-  const ctx=ensureAudio();if(!ctx||!audioMaster)return;
+  let ctx;try{ctx=ensureAudio()}catch(e){return}if(!ctx||!audioMaster)return;
   const now=ctx.currentTime,osc=ctx.createOscillator(),gain=ctx.createGain(),filter=ctx.createBiquadFilter();
   let start=180,end=90,duration=.1,volume=.18,wave='triangle';
   if(kind==='shot'){start=detail?.pulse?420:135;end=detail?.pulse?160:48;duration=detail?.pulse?.095:.07;volume=.09;wave=detail?.pulse?'sawtooth':'square'}
