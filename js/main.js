@@ -664,12 +664,11 @@ function fireWeapon(actor,remoteShot=false){
   if(!slot)return;
   const weapon=WEAPONS[slot.id]||WEAPONS[0],tier=TIERS[slot.tier||0];
   if(weapon.healing){if(isPlayer)usePulseSplash();return}
-  if(isPlayer)playSfx('shot',weapon);
   if(isPlayer&&state.itemUse)return;
   if(isPlayer&&state.reloadTimer>0)return;
   if(slot.ammo<=0){if(isPlayer)startReload();else ud.reloadTimer=weapon.reload;return}
   if(isPlayer&&state.fireTimer>0)return;
-  slot.ammo--;if(isPlayer){const fireMod=state.shard&&state.elapsed<state.shardActiveUntil&&state.shard==='capacitor'?.88:state.shard&&state.elapsed<state.shardActiveUntil&&state.shard==='overclock'?.92:1;state.fireTimer=weapon.rate*fireMod;ud.ammo=slot.ammo}else ud.ammo=slot.ammo;
+  slot.ammo--;if(isPlayer)playSfx('shot',weapon);if(isPlayer){const fireMod=state.shard&&state.elapsed<state.shardActiveUntil&&state.shard==='capacitor'?.88:state.shard&&state.elapsed<state.shardActiveUntil&&state.shard==='overclock'?.92:1;state.fireTimer=weapon.rate*fireMod;ud.ammo=slot.ammo}else ud.ammo=slot.ammo;
   const forward=isPlayer?playerForward():new THREE.Vector3(Math.sin(actor.rotation.y),.01,Math.cos(actor.rotation.y)).normalize();
   const origin=actor.position.clone().add(new THREE.Vector3(0,isPlayer?1.5:1.45,0)).add(forward.clone().multiplyScalar(.85));
   const spread=weapon.spread*(1-(state.shard==='deadeye'&&state.elapsed<state.shardActiveUntil ? .28 : 0));
