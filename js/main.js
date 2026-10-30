@@ -116,7 +116,7 @@ const state = {
   itemUse:null,reloadTimer:0,fireTimer:0,jumpVelocity:0,wasMoving:false,tipTimer:0,
   coins:0,xp:0,level:1,totalKills:0,wins:0,matches:0,skin:'Blaze',ownedSkins:['Blaze'],hat:'None',ownedHats:['None'],trail:'Default',ownedTrails:['Default'],buildStyle:'Oak',ownedBuilds:['Oak'],premiumPass:false,
   upgrades:{health:0,reload:0,wood:0},settings:{quality:'high',fov:78,sensitivity:1,showFps:false},
-  challenge:{matches:0,kills:0,loot:0,claimed:[]},roomSocket:null,roomCode:'',roomHost:false,roomMode:'br',roomPlayerId:'',queueMode:false,
+  challenge:{matches:0,kills:0,loot:0,bosses:0,claimed:[],dayKey:'',weekKey:'',daily:{matches:0,kills:0,loot:0,bosses:0,claimed:[]},weekly:{matches:0,kills:0,loot:0,bosses:0,claimed:[]}},roomSocket:null,roomCode:'',roomHost:false,roomMode:'br',roomPlayerId:'',queueMode:false,
   menuTime:0,saveTimer:0,invulnerable:0
 };
 
@@ -175,7 +175,7 @@ function loadSave(){
     if(Array.isArray(saved.ownedBuilds))state.ownedBuilds=saved.ownedBuilds;
     if(saved.upgrades)Object.assign(state.upgrades,saved.upgrades);
     if(saved.settings)Object.assign(state.settings,saved.settings);
-    if(saved.challenge)Object.assign(state.challenge,saved.challenge);
+    if(saved.challenge){Object.assign(state.challenge,saved.challenge);state.challenge.daily=Object.assign({matches:0,kills:0,loot:0,bosses:0,claimed:[]},saved.challenge.daily||{});state.challenge.weekly=Object.assign({matches:0,kills:0,loot:0,bosses:0,claimed:[]},saved.challenge.weekly||{});}
   }catch(e){console.warn('Save data could not be read',e)}
   state.level=Math.max(1,Math.floor(state.xp/500)+1);
   $('fps-counter').classList.toggle('hidden',!state.settings.showFps);
@@ -189,6 +189,22 @@ function save(){
     coins:state.coins,xp:state.xp,level:state.level,totalKills:state.totalKills,wins:state.wins,matches:state.matches,
     skin:state.skin,ownedSkins:state.ownedSkins,hat:state.hat,ownedHats:state.ownedHats,trail:state.trail,ownedTrails:state.ownedTrails,buildStyle:state.buildStyle,ownedBuilds:state.ownedBuilds,premiumPass:state.premiumPass,upgrades:state.upgrades,settings:state.settings,challenge:state.challenge
   }))}catch(e){console.warn('Could not save progress',e)}
+}
+function challengePeriodKeys(){
+  const d=new Date(),day=[d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');
+  const start=new Date(d.getFullYear(),0,1),week=Math.floor((d.getTime()-start.getTime())/604800000);
+  return {day,week:d.getFullYear()+'-'+String(week).padStart(2,'0')};
+}
+function refreshChallenges(){
+  const keys=challengePeriodKeys();let changed=false;
+  if(state.challenge.dayKey!==keys.day){state.challenge.dayKey=keys.day;state.challenge.daily={matches:0,kills:0,loot:0,bosses:0,claimed:[]};changed=true}
+  if(state.challenge.weekKey!==keys.week){state.challenge.weekKey=keys.week;state.challenge.weekly={matches:0,kills:0,loot:0,bosses:0,claimed:[]};changed=true}
+  if(changed)save();
+}
+function progressChallenge(metric,amount=1){
+  refreshChallenges();if(!(metric in state.challenge.daily)||!(metric in state.challenge.weekly))return;
+  state.challenge[metric]=(state.challenge[metric]||0)+amount;
+  state.challenge.daily[metric]+=amount;state.challenge.weekly[metric]+=amount;save();
 }
 function updateProfile(){
   $('wallet-coins').textContent=state.coins.toLocaleString();
@@ -568,7 +584,7 @@ function startBoxRound(first=false){
 }
 function endBoxRound(winner){
   if(state.box.roundEnded)return;state.box.roundEnded=true;
-  if(winner==='player'){state.box.playerScore++;state.box.totalKills++;state.kills++;state.challenge.kills++}
+  if(winner==='player'){state.box.playerScore++;state.box.totalKills++;state.kills++;progressChallenge('kills')}
   else state.box.botScore++;
   state.box.nextRoundAt=state.elapsed+2.5;
   setTip(winner==='player'?'ROUND WON · '+state.box.playerScore+'–'+state.box.botScore:'ROUND LOST · '+state.box.playerScore+'–'+state.box.botScore);
@@ -580,7 +596,7 @@ function finishMatch(win){
   const box=state.mode==='box',roulette=state.mode==='roulette';
   const coins=box?(state.box.playerScore*35+(win?120:20)):roulette?(win?260:40+state.kills*10):(win?220:35+state.kills*8);
   const xp=box?(win?280:90+state.box.playerScore*30):roulette?(win?500:100+state.kills*25):(win?450:100+state.kills*30);
-  state.matches++;state.challenge.matches++;if(win)state.wins++;
+  state.matches++;progressChallenge('matches');if(win)state.wins++;
   state.totalKills+=state.kills;addProgress(xp,coins);save();
   $('result-kicker').textContent=box?'BOX FIGHTS · SEASON 01':roulette?'PURE WEAPON ROULETTE · SEASON 01':'BATTLE ROYALE · SEASON 01';
   $('result-title').textContent=win?(box?'BOX FIGHTS VICTORY':roulette?'ROULETTE COMPLETE':'VICTORY ROYALE'):(box?'MATCH DEFEAT':roulette?'TIME UP':'MATCH OVER');
@@ -664,7 +680,7 @@ function collectLoot(loot){
   else if(loot.kind==='chug'){state.chugs++;toast('CHUG JUG PICKED UP')}
   else if(loot.kind==='splash'){state.splashes++;toast('PULSE SPLASH PICKED UP')}
   else if(loot.kind==='shard'){state.shard=loot.shard.id;state.dashes=Math.max(state.dashes,loot.shard.id==='dashcore'?1:0);toast(loot.shard.name+' ACQUIRED')}
-  state.challenge.loot++;save();
+  progressChallenge('loot');
   removeEntity(loot.mesh);state.loot=state.loot.filter(x=>x!==loot);updateHud(true);
 }
 function pickupNearest(){
@@ -746,6 +762,7 @@ function eliminateActor(actor,owner){
     finishMatch(false);return;
   }
   if(ud.isBoss){
+    progressChallenge('bosses');
     const cfg=ud.bossConfig;toast(cfg.name+' DEFEATED · PULSE SHARD DROPPED');
     const shard=SHARDS[Math.floor(Math.random()*SHARDS.length)];
     createLoot({kind:'shard',shard,x:actor.position.x+2,z:actor.position.z+1});
@@ -757,7 +774,7 @@ function eliminateActor(actor,owner){
   }
   if(state.mode==='roulette'){
     if(owner===state.player){
-      state.kills++;state.roulette.kills++;state.challenge.kills++;addProgress(20,10);
+      state.kills++;state.roulette.kills++;progressChallenge('kills');addProgress(20,10);
       const crosshair=document.querySelector('.center-crosshair');crosshair?.classList.add('hit-confirmed');setTimeout(()=>crosshair?.classList.remove('hit-confirmed'),115);
       state.roulette.index=Math.min(ROULETTE_ORDER.length-1,state.roulette.index+1);
       const nextId=ROULETTE_ORDER[state.roulette.index];state.slots=[createWeaponSlot(nextId)];state.selected=0;
@@ -769,7 +786,7 @@ function eliminateActor(actor,owner){
     state.alive=state.bots.filter(b=>!b.userData.dead).length+1;return;
   }
   if(owner===state.player){
-    state.kills++;state.challenge.kills++;addProgress(25,12);
+    state.kills++;progressChallenge('kills');addProgress(25,12);
     const crosshair=document.querySelector('.center-crosshair');crosshair?.classList.add('hit-confirmed');setTimeout(()=>crosshair?.classList.remove('hit-confirmed'),115);
     $('kill-feed').innerHTML='<div>ELIMINATED · '+escapeText(ud.name)+'</div>'+ $('kill-feed').innerHTML;
     setTimeout(()=>{if($('kill-feed').children.length>4)$('kill-feed').lastElementChild.remove()},3200);
@@ -1169,6 +1186,7 @@ function hostStart(){
 }
 
 function openContent(panel,category='skins'){
+  refreshChallenges();
   const title=panel.toUpperCase();$('content-title').textContent=title;$('content-kicker').textContent='PIXELROYALE // '+title;
   const body=$('content-body');body.innerHTML='';
   if(panel==='stats'){
@@ -1210,9 +1228,33 @@ function openContent(panel,category='skins'){
     if(tier===50&&state.premiumPass&&!state.ownedSkins.includes('Pulse Sovereign'))body.innerHTML+='<button id="claim-pass" class="primary-button">CLAIM PULSE SOVEREIGN</button>';
     $('claim-pass')?.addEventListener('click',()=>{state.ownedSkins.push('Pulse Sovereign');save();toast('PULSE SOVEREIGN UNLOCKED');openContent(panel)});
   }else if(panel==='rewards'){
-    const tasks=[{id:'matches',name:'DROP IN',desc:'Play 1 match',need:1,have:state.challenge.matches,reward:100},{id:'kills',name:'ELIMINATOR',desc:'Get 5 eliminations',need:5,have:state.challenge.kills,reward:180},{id:'loot',name:'SCAVENGER',desc:'Collect 5 items',need:5,have:state.challenge.loot,reward:120}];
-    body.innerHTML='<p class="content-intro">Daily and weekly objectives · Progress is saved on this device.</p><div class="store-grid">'+tasks.map(t=>{const done=t.have>=t.need,claimed=state.challenge.claimed.includes(t.id);return '<article class="store-card"><div class="store-info"><b>'+t.name+'</b><small>'+t.desc+' · '+Math.min(t.have,t.need)+'/'+t.need+' · '+t.reward+' COINS</small></div><button data-challenge="'+t.id+'" '+(!done||claimed?'disabled':'')+'>'+(claimed?'CLAIMED':done?'CLAIM':'IN PROGRESS')+'</button></article>'}).join('')+'</div>';
-    body.querySelectorAll('[data-challenge]').forEach(btn=>btn.onclick=()=>{const t=tasks.find(x=>x.id===btn.dataset.challenge);if(t.have<t.need||state.challenge.claimed.includes(t.id))return;state.challenge.claimed.push(t.id);state.coins+=t.reward;save();updateProfile();openContent(panel);toast('CHALLENGE REWARD CLAIMED')});
+    const groups=[
+      {id:'daily',label:'DAILY CHALLENGES',progress:state.challenge.daily,tasks:[
+        {id:'matches',name:'DROP IN',desc:'Play 1 match',need:1,reward:100},
+        {id:'kills',name:'ELIMINATOR',desc:'Get 5 eliminations',need:5,reward:180},
+        {id:'loot',name:'SCAVENGER',desc:'Collect 5 items',need:5,reward:120}
+      ]},
+      {id:'weekly',label:'WEEKLY CHALLENGES',progress:state.challenge.weekly,tasks:[
+        {id:'matches',name:'REGULAR',desc:'Play 10 matches',need:10,reward:600},
+        {id:'kills',name:'CONTRACT',desc:'Get 30 eliminations',need:30,reward:900},
+        {id:'bosses',name:'CONTAINMENT',desc:'Defeat 3 Pulse bosses',need:3,reward:800}
+      ]}
+    ];
+    let challengeHtml='<p class="content-intro">Daily objectives reset every day. Weekly objectives reset each week. Earn match rewards by completing them.</p>';
+    for(const group of groups){
+      challengeHtml+='<h3 class="challenge-heading">'+group.label+'</h3><div class="store-grid">';
+      for(const t of group.tasks){
+        const done=group.progress[t.id]>=t.need,claimed=group.progress.claimed.includes(t.id);
+        challengeHtml+='<article class="store-card"><div class="store-info"><b>'+t.name+'</b><small>'+t.desc+' · '+Math.min(group.progress[t.id],t.need)+'/'+t.need+' · '+t.reward+' COINS</small></div><button data-challenge="'+group.id+'_'+t.id+'" '+(!done||claimed?'disabled':'')+'>'+(claimed?'CLAIMED':done?'CLAIM':'IN PROGRESS')+'</button></article>';
+      }
+      challengeHtml+='</div>';
+    }
+    body.innerHTML=challengeHtml;
+    body.querySelectorAll('[data-challenge]').forEach(btn=>btn.onclick=()=>{
+      const [scope,id]=btn.dataset.challenge.split('_'),group=groups.find(x=>x.id===scope),task=group?.tasks.find(x=>x.id===id);
+      if(!group||!task||group.progress[id]<task.need||group.progress.claimed.includes(id))return;
+      group.progress.claimed.push(id);state.coins+=task.reward;save();updateProfile();openContent(panel);toast('CHALLENGE REWARD CLAIMED');
+    });
   }else if(panel==='settings'){
     body.innerHTML='<p class="content-intro">Adjust performance and camera settings. Changes are saved automatically.</p><div class="settings-row"><span>GRAPHICS QUALITY<small>Lower settings improve performance on slower devices.</small></span><select id="quality-setting" class="setting-select"><option value="high">HIGH</option><option value="medium">MEDIUM</option><option value="low">POTATO</option></select></div><div class="settings-row"><span>CAMERA FIELD OF VIEW</span><input id="fov-setting" type="range" min="65" max="100" value="'+state.settings.fov+'"></div><div class="settings-row"><span>MOUSE SENSITIVITY</span><input id="sens-setting" type="range" min=".4" max="2" step=".1" value="'+state.settings.sensitivity+'"></div><div class="settings-row"><span>SHOW FPS</span><input id="fps-setting" type="checkbox" '+(state.settings.showFps?'checked':'')+'></div>';
     $('quality-setting').value=state.settings.quality;
