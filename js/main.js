@@ -282,23 +282,40 @@ function buildIsland(){
     const p=LOCATIONS[i];addBuilding(p);
     addLocationLabel(p.name,p.x,p.z);
   }
-  const trunkGeo=new THREE.CylinderGeometry(.22,.38,3.1,6),leafGeo=new THREE.ConeGeometry(2.3,6.2,7);
-  const trunkMat=mat(0x65472d),leafMats=[mat(0x285d43),mat(0x326d49),mat(0x3b794f)];
+  const trunkGeo=new THREE.CylinderGeometry(.22,.38,3.1,6),leafGeo=new THREE.ConeGeometry(2.3,6.2,7),leafTopGeo=new THREE.ConeGeometry(1.55,4.5,7);
+  const trunkMat=mat(0x65472d),leafMat=mat(0xffffff),rockMat=mat(0xffffff);
+  const trunkInstances=new THREE.InstancedMesh(trunkGeo,trunkMat,245);
+  const crownInstances=new THREE.InstancedMesh(leafGeo,leafMat,245);
+  const crownTopInstances=new THREE.InstancedMesh(leafTopGeo,leafMat,245);
+  trunkInstances.castShadow=true;trunkInstances.receiveShadow=true;
+  crownInstances.castShadow=true;crownInstances.receiveShadow=true;
+  crownTopInstances.castShadow=true;crownTopInstances.receiveShadow=true;
+  const dummy=new THREE.Object3D(),leafColors=[0x285d43,0x326d49,0x3b794f].map(c=>new THREE.Color(c));
+  let treeCount=0;
   for(let i=0;i<245;i++){
-    const a=Math.random()*Math.PI*2,r=36+Math.random()*101,x=Math.cos(a)*r,z=Math.sin(a)*r;
+    const angle=Math.random()*Math.PI*2,radius=36+Math.random()*101,x=Math.cos(angle)*radius,z=Math.sin(angle)*radius;
     if(Math.sqrt(x*x+z*z)>143)continue;
     if(LOCATIONS.some(p=>Math.hypot(p.x-x,p.z-z)<23))continue;
-    const group=new THREE.Group();group.position.set(x,groundHeight(x,z),z);group.rotation.y=Math.random()*Math.PI*2;
-    const trunk=new THREE.Mesh(trunkGeo,trunkMat);trunk.position.y=1.5;trunk.castShadow=true;group.add(trunk);
-    const crown=new THREE.Mesh(leafGeo,leafMats[i%leafMats.length]);crown.position.y=5.2+Math.random()*1.1;crown.scale.setScalar(.82+Math.random()*.5);crown.castShadow=true;group.add(crown);
-    const crown2=new THREE.Mesh(new THREE.ConeGeometry(1.55,4.5,7),leafMats[(i+1)%leafMats.length]);crown2.position.y=7.3;crown2.castShadow=true;group.add(crown2);scene.add(group);
+    const y=groundHeight(x,z),rotation=Math.random()*Math.PI*2;
+    dummy.position.set(x,y+1.5,z);dummy.rotation.set(0,rotation,0);dummy.scale.set(1,1,1);dummy.updateMatrix();trunkInstances.setMatrixAt(treeCount,dummy.matrix);
+    dummy.position.set(x,y+5.2+Math.random()*1.1,z);const crownScale=.82+Math.random()*.5;dummy.rotation.set(0,rotation,0);dummy.scale.setScalar(crownScale);dummy.updateMatrix();crownInstances.setMatrixAt(treeCount,dummy.matrix);crownInstances.setColorAt(treeCount,leafColors[i%leafColors.length]);
+    dummy.position.set(x,y+7.3,z);dummy.scale.set(1,1,1);dummy.updateMatrix();crownTopInstances.setMatrixAt(treeCount,dummy.matrix);crownTopInstances.setColorAt(treeCount,leafColors[(i+1)%leafColors.length]);
+    treeCount++;
   }
+  trunkInstances.count=treeCount;crownInstances.count=treeCount;crownTopInstances.count=treeCount;
+  trunkInstances.instanceMatrix.needsUpdate=true;crownInstances.instanceMatrix.needsUpdate=true;crownTopInstances.instanceMatrix.needsUpdate=true;
+  if(crownInstances.instanceColor)crownInstances.instanceColor.needsUpdate=true;
+  if(crownTopInstances.instanceColor)crownTopInstances.instanceColor.needsUpdate=true;
+  scene.add(trunkInstances,crownInstances,crownTopInstances);
+  const rockGeo=new THREE.DodecahedronGeometry(1,0),rocks=new THREE.InstancedMesh(rockGeo,rockMat,80);
+  rocks.castShadow=true;rocks.receiveShadow=true;let rockCount=0;
   for(let i=0;i<80;i++){
-    const a=Math.random()*Math.PI*2,r=28+Math.random()*115,x=Math.cos(a)*r,z=Math.sin(a)*r;
+    const angle=Math.random()*Math.PI*2,radius=28+Math.random()*115,x=Math.cos(angle)*radius,z=Math.sin(angle)*radius;
     if(LOCATIONS.some(p=>Math.hypot(p.x-x,p.z-z)<14))continue;
-    const rock=new THREE.Mesh(new THREE.DodecahedronGeometry(rand(.5,1.5),0),mat(i%2?0x707b7d:0x8b9087));
-    rock.position.set(x,groundHeight(x,z)+.45,z);rock.rotation.set(Math.random(),Math.random(),Math.random());rock.scale.set(1,.6,1.15);rock.castShadow=true;scene.add(rock);
+    dummy.position.set(x,groundHeight(x,z)+.45,z);dummy.rotation.set(Math.random(),Math.random(),Math.random());dummy.scale.set(rand(.5,1.5),rand(.3,.9),rand(.5,1.5));dummy.updateMatrix();rocks.setMatrixAt(rockCount,dummy.matrix);
+    rocks.setColorAt(rockCount,new THREE.Color(i%2?0x707b7d:0x8b9087));rockCount++;
   }
+  rocks.count=rockCount;rocks.instanceMatrix.needsUpdate=true;if(rocks.instanceColor)rocks.instanceColor.needsUpdate=true;scene.add(rocks);
 }
 function addBuilding(point){
   const x=point.x,z=point.z,h=groundHeight(x,z),g=new THREE.Group();g.position.set(x,h,z);scene.add(g);
