@@ -107,7 +107,7 @@ const NAMES = ['RiftRunner','NovaByte','CrateKing','Minty','Vex','PixelPilot','D
 const state = {
   mode:'br',running:false,paused:false,elapsed:0,last:0,fps:60,fpsFrames:0,fpsTime:0,
   kills:0,alive:24,health:100,shield:0,wood:250,medkits:0,shields:0,chugs:0,splashes:0,
-  player:null,bots:[],bosses:[],bullets:[],loot:[],builds:[],colliders:[],remotePlayers:new Map(),
+  player:null,bots:[],bosses:[],bullets:[],loot:[],particles:[],trailAt:0,builds:[],colliders:[],remotePlayers:new Map(),
   slots:[],selected:0,mouseDown:false,keys:{},cameraYaw:0,cameraPitch:-.08,
   storm:{phase:0,radius:145,start:145,target:145,timer:42,elapsed:0,damageTick:0,cx:0,cz:0},
   box:{round:1,playerScore:0,botScore:0,roundEnded:false,nextRoundAt:0,totalKills:0},
@@ -479,9 +479,10 @@ function clearMatchEntities(){
   for(const a of state.bosses)removeEntity(a);
   for(const b of state.bullets)removeEntity(b.mesh);
   for(const l of state.loot)removeEntity(l.mesh);
+  for(const p of state.particles)removeEntity(p.mesh);
   for(const w of state.builds){removeEntity(w.mesh);const i=state.colliders.indexOf(w.collider);if(i>=0)state.colliders.splice(i,1)}
   for(const r of state.remotePlayers.values())removeEntity(r);
-  state.bots=[];state.bosses=[];state.bullets=[];state.loot=[];state.builds=[];state.remotePlayers.clear();
+  state.bots=[];state.bosses=[];state.bullets=[];state.loot=[];state.particles=[];state.trailAt=0;state.builds=[];state.remotePlayers.clear();
   state.colliders=collisionBuildings.slice();
 }
 function setupPlayer(){
@@ -755,10 +756,11 @@ function escapeText(text){return String(text).replace(/[&<>"']/g,c=>({'&':'&amp;
 
 function createBuildWall(x,z,yaw,remote=false){
   const mesh=new THREE.Group();mesh.position.set(x,groundHeight(x,z),z);mesh.rotation.y=yaw;
-  const wood=mat(0x967147,.88),edge=mat(0x4e3724,.9),panel=mat(0xb38a55,.9);
-  addBox(mesh,5,.22,.26,edge,0,1.7,0);
+  const style=BUILD_STYLES.find(s=>s.name===state.buildStyle)||BUILD_STYLES[0];
+  const wood=mat(style.color,.72,.18,style.name.includes('Pulse')||style.name==='Neon'?style.color:0,(style.name.includes('Pulse')||style.name==='Neon')?.55:0),edge=mat(0x4e3724,.9),panel=mat(style.color,.68,.22,style.name.includes('Pulse')||style.name==='Neon'?style.color:0,(style.name.includes('Pulse')||style.name==='Neon')?.8:0);
+  addBox(mesh,5,.22,.26,wood,0,1.7,0);
   addBox(mesh,5,.22,.26,edge,0,.12,0);
-  for(let i=0;i<4;i++)addBox(mesh,.2,3.35,.27,edge,-2.4+i*1.6,1.78,0);
+  for(let i=0;i<4;i++)addBox(mesh,.2,3.35,.27,wood,-2.4+i*1.6,1.78,0);
   for(let row=0;row<2;row++)for(let col=0;col<3;col++){
     const panelMesh=addBox(mesh,1.35,1.52,.12,panel,-1.6+col*1.6,.95+row*1.56,.08);
     panelMesh.userData.panel=true;panelMesh.userData.col=col;panelMesh.userData.row=row;
@@ -806,6 +808,19 @@ function moveActor(actor,dx,dz){
   if(actor.position.y<groundHeight(actor.position.x,actor.position.z))actor.position.y=groundHeight(actor.position.x,actor.position.z);
 }
 
+function emitPlayerTrail(){
+  if(!state.player||state.trail==='Default'||state.elapsed<state.trailAt)return;
+  state.trailAt=state.elapsed+.075;
+  const spec=TRAILS.find(t=>t.name===state.trail)||TRAILS[0];
+  const color=state.trail==='Rainbow'?new THREE.Color().setHSL((state.elapsed*.55)%1,.92,.62):new THREE.Color(spec.color);
+  const mesh=new THREE.Mesh(new THREE.SphereGeometry(.15,7,6),new THREE.MeshBasicMaterial({color,transparent:true,opacity:.72,depthWrite:false}));
+  const back=new THREE.Vector3(-Math.sin(state.cameraYaw),0,-Math.cos(state.cameraYaw));
+  mesh.position.set(state.player.position.x+back.x*.7,state.player.position.y+.18,state.player.position.z+back.z*.7);scene.add(mesh);
+  state.particles.push({mesh,life:.48,maxLife:.48});
+}
+function updateParticles(dt){
+  for(let i=state.particles.length-1;i>=0;i--){const p=state.particles[i];p.life-=dt;p.mesh.scale.multiplyScalar(1+dt*1.8);p.mesh.material.opacity=Math.max(0,p.life/p.maxLife*.72);if(p.life<=0){removeEntity(p.mesh);p.mesh.material.dispose();state.particles.splice(i,1)}}
+}
 function updatePlayer(dt){
   const p=state.player,ud=p.userData;if(!p||ud.dead)return;
   if(state.invulnerable>0)state.invulnerable-=dt;
@@ -829,6 +844,7 @@ function updatePlayer(dt){
   if(p.position.y<gy){p.position.y=gy;state.jumpVelocity=0}
   p.rotation.y=state.cameraYaw;
   ud.moving=moving;
+  if(moving)emitPlayerTrail();
   if(state.mouseDown)fireWeapon(p);
   autoPickup();
   if(state.shard==='vitalflow'&&state.elapsed<state.vitalFlowUntil){state.health=Math.min(100,state.health+3*dt);state.shield=Math.min(100,state.shield+2*dt);ud.health=state.health;ud.shield=state.shield}
@@ -1175,7 +1191,10 @@ function openContent(panel,category='skins'){
   show('content-overlay');
 }
 function colorHex(color){return '#'+new THREE.Color(color).getHexString()}
-function setupMenuPlayerSkin(){if(!playerModel)return;const skin=SKINS.find(s=>s.name===state.skin)||SKINS[0];const torso=playerModel.children[0];if(torso)torso.material=mat(skin.color)}
+function setupMenuPlayerSkin(){
+  const skin=SKINS.find(s=>s.name===state.skin)||SKINS[0];
+  for(const actor of [playerModel,state.player]){if(!actor)continue;const torso=actor.children[0];if(torso)torso.material=mat(skin.color);applyPlayerCosmetics(actor)}
+}
 function applyQuality(){
   const q=state.settings.quality;renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,q==='high'?1.7:q==='medium'?1.25:1));
   renderer.shadowMap.enabled=q!=='low';
@@ -1243,6 +1262,7 @@ function tick(dt){
   updateBosses(dt);
   updateProjectiles(dt);
   updateLoot(dt);
+  updateParticles(dt);
   updateStorm(dt);
   if(state.mode==='box'&&state.box.roundEnded&&state.elapsed>=state.box.nextRoundAt){
     if(state.box.playerScore>=5||state.box.botScore>=5)finishMatch(state.box.playerScore>=5);
