@@ -640,7 +640,7 @@ function damageActor(actor,amount,owner=null){
   const ud=actor.userData;
   if(actor===state.player&&state.invulnerable>0)return;
   let damage=amount;
-  if(actor===state.player&&state.shard&&state.elapsed<state.shardActiveUntil){if(state.shard==='bulwark')damage*=.82;if(state.shard==='pulseguard')damage*=.92;if(state.shard==='overdrive')damage*=1.1;}
+  if(actor===state.player&&state.shard&&state.elapsed<state.shardActiveUntil){if(state.shard==='bulwark')damage*=.82;if(state.shard==='pulseguard')damage*=.92;if(state.shard==='phase')damage*=.9;if(state.shard==='overdrive')damage*=1.1;}
   if(actor!==state.player&&ud.shardType&&state.elapsed<ud.shardActiveUntil){if(ud.shardType==='bulwark')damage*=.82;if(ud.shardType==='pulseguard')damage*=.92;if(ud.shardType==='phase')damage*=.9;if(ud.shardType==='overdrive')damage*=1.1;}
   let rest=damage;
   if(ud.shield>0){const n=Math.min(ud.shield,rest);ud.shield-=n;rest-=n}
