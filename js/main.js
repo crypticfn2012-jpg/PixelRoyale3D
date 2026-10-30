@@ -463,6 +463,7 @@ function buildBoxArena(){
   addBox(scene,42,.6,.7,0x526a70,0,groundHeight(0,arenaZ+28)+.1,arenaZ+28);
   addBox(scene,.7,.6,42,0x526a70,-28,groundHeight(-28,arenaZ)+.1,arenaZ);
   addBox(scene,.7,.6,42,0x526a70,28,groundHeight(28,arenaZ)+.1,arenaZ);
+  const arenaBounds=[{x:0,z:arenaZ-28,w:42,d:1,yaw:0},{x:0,z:arenaZ+28,w:42,d:1,yaw:0},{x:-28,z:arenaZ,w:1,d:42,yaw:0},{x:28,z:arenaZ,w:1,d:42,yaw:0}];collisionBuildings.push(...arenaBounds);state.colliders.push(...arenaBounds);
   const label=addBox(scene,0.1,0.1,0.1,0xffffff,0,-30,arenaZ,{shadow:false});label.visible=false;
 }
 function startBoxRound(first=false){
@@ -861,15 +862,26 @@ function bossAttack(boss,target){
     for(let i=0;i<count;i++){const offset=(i-(count-1)/2)*(ud.phase===2?.14:.22),a=base+offset,dir=new THREE.Vector3(Math.sin(a),.03,Math.cos(a));spawnProjectile(boss.position.clone().add(new THREE.Vector3(0,2,0)),dir,ud.phase===2?15:11,ud.bossConfig.color,ud.phase===2?52:43,3,boss,false)}
   }
 }
+function projectileBlocked(pos,damage,owner){
+  for(const c of state.colliders){
+    const dx=pos.x-c.x,dz=pos.z-c.z,a=Math.cos(c.yaw||0),b=Math.sin(c.yaw||0),lx=dx*a-dz*b,lz=dx*b+dz*a;
+    if(Math.abs(lx)>(c.w||4)/2+.12||Math.abs(lz)>(c.d||4)/2+.12)continue;
+    const floor=groundHeight(pos.x,pos.z);if(pos.y<floor+.2||pos.y>floor+12)continue;
+    if(c.wall){const wall=state.builds.find(w=>w.collider===c);if(wall){wall.hp-=damage;if(wall.hp<=0){removeEntity(wall.mesh);state.builds=state.builds.filter(w=>w!==wall);state.colliders=state.colliders.filter(x=>x!==c)}}}
+    return true;
+  }
+  return false;
+}
 function updateProjectiles(dt){
   for(let i=state.bullets.length-1;i>=0;i--){
     const b=state.bullets[i];b.mesh.position.addScaledVector(b.dir,b.speed*dt);b.life-=dt;
     let remove=b.life<=0;
     if(!remove){
       const pos=b.mesh.position;
-      if(b.remote){
+      if(projectileBlocked(pos,b.damage,b.owner))remove=true;
+      if(!remove&&b.remote){
         if(dist2(pos,state.player.position)<1.25&&Math.abs(pos.y-(state.player.position.y+1.2))<2.4){damageActor(state.player,b.damage,null);remove=true}
-      }else{
+      }else if(!remove){
         const targets=b.owner===state.player?[...state.bots,...state.bosses]:b.owner?.userData.isBoss?[state.player,...state.bots]:[state.player,...state.bots.filter(a=>a!==b.owner),...state.bosses];
         for(const target of targets){
           if(!target||target.userData.dead||!target.visible)continue;
