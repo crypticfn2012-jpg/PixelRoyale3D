@@ -375,10 +375,10 @@ function buildPulseCore(){
   for(let i=0;i<5;i++){const ring=new THREE.Mesh(new THREE.TorusGeometry(4+i*2,.08,6,64),new THREE.MeshBasicMaterial({color:i%2?0xff48c9:0x4beaff,transparent:true,opacity:.7}));ring.position.y=4+i*2.1;ring.rotation.x=Math.PI/2;group.add(ring)}
 }
 
-function buildWeaponModel(group,id){
+function buildWeaponModel(group,id,tier=0){
   group.clear();
-  const weapon=WEAPONS[id]||WEAPONS[0],name=weapon.name.toLowerCase(),pulse=!!weapon.pulse;
-  const body=mat(pulse?0x25334c:0x344451,.42,.5),dark=mat(0x101923,.42,.55),accent=new THREE.MeshStandardMaterial({color:weapon.color,emissive:weapon.color,emissiveIntensity:pulse?1.35:.18,metalness:.42,roughness:.28});
+  const weapon=WEAPONS[id]||WEAPONS[0],name=weapon.name.toLowerCase(),pulse=!!weapon.pulse,rarity=TIERS[tier]||TIERS[0],accentColor=tier===4?rarity.color:weapon.color;
+  const body=mat(pulse?0x25334c:0x344451,.42,.5),dark=mat(0x101923,.42,.55),accent=new THREE.MeshStandardMaterial({color:accentColor,emissive:accentColor,emissiveIntensity:tier===4?1.5:pulse?1.35:.18,metalness:.42,roughness:.28});
   const pistol=name.includes('pistol')||name.includes('hand cannon')||name.includes('flint');
   const shotgun=name.includes('shotgun')||name.includes('scattergun')||name.includes('double tap');
   const sniper=name.includes('sniper')||name.includes('longshot')||name.includes('scout')||name.includes('oracle');
@@ -400,9 +400,9 @@ function buildWeaponModel(group,id){
   if(!pistol){const mag=new THREE.Mesh(new THREE.BoxGeometry(.15,.34,.22),body);mag.position.set(0,-.26,.18);mag.rotation.x=.08;group.add(mag)}
   group.userData.weaponId=id;
 }
-function updateWeaponVisual(actor,id){
-  if(!actor?.userData?.gunGroup||actor.userData.visualWeaponId===id)return;
-  buildWeaponModel(actor.userData.gunGroup,id);actor.userData.visualWeaponId=id;
+function updateWeaponVisual(actor,id,tier=0){
+  if(!actor?.userData?.gunGroup||(actor.userData.visualWeaponId===id&&actor.userData.visualTier===tier))return;
+  buildWeaponModel(actor.userData.gunGroup,id,tier);actor.userData.visualWeaponId=id;actor.userData.visualTier=tier;
 }
 function createActor(options={}){
   const root=new THREE.Group();const mainColor=options.color??0x36c7bc;
@@ -438,7 +438,7 @@ function createActor(options={}){
     name:options.name||'PLAYER',health:options.health??100,maxHealth:options.maxHealth??100,shield:options.shield??0,
     dead:false,speed:options.speed??4.1,weaponId:options.weaponId??0,ammo:options.ammo??WEAPONS[options.weaponId??0].mag,
     shootTimer:rand(.2,1),reloadTimer:0,target:null,thinkTimer:0,wanderAngle:Math.random()*6.28,limbs,gunGroup,
-    moving:false,phase:Math.random()*6,damageFlash:0,visualWeaponId:options.weaponId??0,botBuildTimer:rand(2,5)
+    moving:false,phase:Math.random()*6,damageFlash:0,visualWeaponId:options.weaponId??0,visualTier:options.tier??0,botBuildTimer:rand(2,5)
   };
   if(options.isBoss){
     root.scale.setScalar(1.85);
@@ -675,11 +675,11 @@ function finishReload(){
 }
 function switchWeapon(index){
   if(index<0||index>=state.slots.length||!state.slots[index])return;
-  state.selected=index;state.player.userData.weaponId=state.slots[index].id;state.player.userData.ammo=state.slots[index].ammo;updateWeaponVisual(state.player,state.slots[index].id);state.fireTimer=0;updateHud(true);
+  state.selected=index;state.player.userData.weaponId=state.slots[index].id;state.player.userData.ammo=state.slots[index].ammo;updateWeaponVisual(state.player,state.slots[index].id,state.slots[index].tier);state.fireTimer=0;updateHud(true);
 }
 function addWeapon(id,tier=0){
   const existing=state.slots.findIndex(s=>s.id===id);
-  if(existing>=0){state.slots[existing].tier=Math.max(state.slots[existing].tier,tier);state.slots[existing].ammo=WEAPONS[id].mag;return}
+  if(existing>=0){state.slots[existing].tier=Math.max(state.slots[existing].tier,tier);state.slots[existing].ammo=WEAPONS[id].mag;if(existing===state.selected)switchWeapon(existing);return}
   let slot=state.slots.findIndex(s=>!s);
   if(slot<0&&state.slots.length<5)slot=state.slots.length;
   if(slot<0)slot=state.selected;
@@ -794,7 +794,7 @@ function eliminateActor(actor,owner){
       const crosshair=document.querySelector('.center-crosshair');crosshair?.classList.add('hit-confirmed');setTimeout(()=>crosshair?.classList.remove('hit-confirmed'),115);
       state.roulette.index=Math.min(ROULETTE_ORDER.length-1,state.roulette.index+1);
       const nextId=ROULETTE_ORDER[state.roulette.index];state.slots=[createWeaponSlot(nextId)];state.selected=0;
-      state.player.userData.weaponId=nextId;state.player.userData.ammo=WEAPONS[nextId].mag;updateWeaponVisual(state.player,nextId);
+      state.player.userData.weaponId=nextId;state.player.userData.ammo=WEAPONS[nextId].mag;updateWeaponVisual(state.player,nextId,0);
       toast('ELIMINATION · NEXT WEAPON: '+WEAPONS[nextId].name.toUpperCase());
       if(state.kills>=30||state.roulette.index>=ROULETTE_ORDER.length-1){finishMatch(true);return}
     }
@@ -958,7 +958,7 @@ function updateBots(dt){
       const m=Math.hypot(mx,mz)||1;let shardSpeed=1;if(ud.shardType&&state.elapsed<ud.shardActiveUntil){if(ud.shardType==='phase')shardSpeed=1.45;if(ud.shardType==='kinetic')shardSpeed=1.2;if(ud.shardType==='aegis')shardSpeed=.88}const sp=ud.speed*(ud.health<45?1.12:1)*shardSpeed;
       if(d>9||Math.abs(strafe)>.2){moveActor(bot,mx/m*sp*dt,mz/m*sp*dt);moving=true}
       if(state.mode==='box'){const wanted=d<19?2:3;if(ud.weaponId!==wanted){ud.weaponId=wanted;ud.ammo=WEAPONS[wanted].mag;ud.reloadTimer=0}}
-      updateWeaponVisual(bot,ud.weaponId);
+      updateWeaponVisual(bot,ud.weaponId,ud.tier||0);
       const weapon=WEAPONS[ud.weaponId]||WEAPONS[0];
       if(d<weapon.range*.72&&ud.shootTimer<=0){
         if(ud.ammo<=0){const reloadMod=ud.shardType&&state.elapsed<ud.shardActiveUntil&&['quickcycle','overclock'].includes(ud.shardType)?.8:1;ud.reloadTimer=weapon.reload*reloadMod;ud.ammo=weapon.mag}
@@ -1122,12 +1122,12 @@ function applyRemoteState(data){
   actor.position.lerp(new THREE.Vector3(p.x,groundHeight(p.x,p.z),p.z),.6);
   actor.rotation.y=Number(p.yaw)||0;actor.visible=p.alive!==false;
   actor.userData.health=p.hp??100;actor.userData.shield=p.sh??0;
-  actor.userData.weaponId=p.weapon??0;updateWeaponVisual(actor,actor.userData.weaponId);
+  actor.userData.weaponId=p.weapon??0;actor.userData.tier=p.tier??0;updateWeaponVisual(actor,actor.userData.weaponId,actor.userData.tier);
 }
 function sendNetState(){
   if(state.roomSocket?.readyState!==WebSocket.OPEN||!state.running)return;
   const p=state.player;
-  state.roomSocket.send(JSON.stringify({type:'state',p:{x:p.position.x,z:p.position.z,yaw:p.rotation.y,hp:state.health,sh:state.shield,weapon:state.slots[state.selected]?.id||0,alive:!p.userData.dead}}));
+  state.roomSocket.send(JSON.stringify({type:'state',p:{x:p.position.x,z:p.position.z,yaw:p.rotation.y,hp:state.health,sh:state.shield,weapon:state.slots[state.selected]?.id||0,tier:state.slots[state.selected]?.tier||0,alive:!p.userData.dead}}));
 }
 function handleRemoteShot(data){
   if(!state.running||!data||typeof data.x!=='number')return;
