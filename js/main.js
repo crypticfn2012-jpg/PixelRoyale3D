@@ -309,6 +309,35 @@ function buildPulseCore(){
   for(let i=0;i<5;i++){const ring=new THREE.Mesh(new THREE.TorusGeometry(4+i*2,.08,6,64),new THREE.MeshBasicMaterial({color:i%2?0xff48c9:0x4beaff,transparent:true,opacity:.7}));ring.position.y=4+i*2.1;ring.rotation.x=Math.PI/2;group.add(ring)}
 }
 
+function buildWeaponModel(group,id){
+  group.clear();
+  const weapon=WEAPONS[id]||WEAPONS[0],name=weapon.name.toLowerCase(),pulse=!!weapon.pulse;
+  const body=mat(pulse?0x25334c:0x344451,.42,.5),dark=mat(0x101923,.42,.55),accent=new THREE.MeshStandardMaterial({color:weapon.color,emissive:weapon.color,emissiveIntensity:pulse?1.35:.18,metalness:.42,roughness:.28});
+  const pistol=name.includes('pistol')||name.includes('hand cannon')||name.includes('flint');
+  const shotgun=name.includes('shotgun')||name.includes('scattergun')||name.includes('double tap');
+  const sniper=name.includes('sniper')||name.includes('longshot')||name.includes('scout')||name.includes('oracle');
+  const length=sniper?1.45:shotgun?1.05:pistol?.48:.88;
+  const width=shotgun?.38:pistol?.25:.3;
+  addBox(group,width,.23,.62,body,0,0,.12);
+  addBox(group,width*.72,.1,.32,dark,0,-.09,-.22);
+  addBox(group,.13,.31,.22,dark,0,-.24,-.02);
+  const barrel=new THREE.Mesh(new THREE.CylinderGeometry(shotgun?.075:.055,shotgun?.085:.06,length,9),dark);barrel.rotation.x=Math.PI/2;barrel.position.set(0,.015,.39+length/2);group.add(barrel);
+  const muzzle=new THREE.Mesh(new THREE.CylinderGeometry(shotgun?.11:.08,shotgun?.11:.08,.15,10),accent);muzzle.rotation.x=Math.PI/2;muzzle.position.set(0,.015,.4+length);group.add(muzzle);
+  if(shotgun){for(const side of [-1,1]){const tube=new THREE.Mesh(new THREE.CylinderGeometry(.047,.047,.8,8),dark);tube.rotation.x=Math.PI/2;tube.position.set(side*.105,-.05,.72);group.add(tube)}}
+  if(sniper||!pistol){
+    addBox(group,.28,.12,.3,dark,0,.17,.2);
+    const optic=new THREE.Mesh(new THREE.CylinderGeometry(.09,.09,.24,10),accent);optic.rotation.x=Math.PI/2;optic.position.set(0,.26,.18);group.add(optic);
+    addBox(group,.07,.09,.7,accent,0,.14,.4,{shadow:false});
+  }
+  if(pulse){addBox(group,.08,.08,.8,accent,width*.62,.12,.28,{shadow:false});const core=new THREE.Mesh(new THREE.SphereGeometry(.11,8,7),accent);core.position.set(0,.17,.1);group.add(core)}
+  const grip=new THREE.Mesh(new THREE.BoxGeometry(.13,.36,.18),dark);grip.position.set(0,-.26,-.02);grip.rotation.x=-.14;group.add(grip);
+  if(!pistol){const mag=new THREE.Mesh(new THREE.BoxGeometry(.15,.34,.22),body);mag.position.set(0,-.26,.18);mag.rotation.x=.08;group.add(mag)}
+  group.userData.weaponId=id;
+}
+function updateWeaponVisual(actor,id){
+  if(!actor?.userData?.gunGroup||actor.userData.visualWeaponId===id)return;
+  buildWeaponModel(actor.userData.gunGroup,id);actor.userData.visualWeaponId=id;
+}
 function createActor(options={}){
   const root=new THREE.Group();const mainColor=options.color??0x36c7bc;
   const outfit=mat(mainColor,.72,.08),dark=mat(0x182a39,.75,.12),skin=mat(options.skinColor??0xe5b58c),boot=mat(0x101a24,.9),visor=new THREE.MeshStandardMaterial({color:options.isBoss?mainColor:0x6fe9ec,emissive:options.isBoss?mainColor:0x155c66,emissiveIntensity:options.isBoss?1.1:.3,metalness:.55,roughness:.2});
@@ -337,15 +366,13 @@ function createActor(options={}){
     const sole=new THREE.Mesh(new THREE.BoxGeometry(options.isBoss?.92:.52,.12,.8),mat(0x060d15));sole.position.set(side*(options.isBoss?.48:.24),.055,.16);root.add(sole);
   }
   const gunGroup=new THREE.Group();gunGroup.position.set(.48,1.45,.47);root.add(gunGroup);
-  addBox(gunGroup,.32,.23,1.15,options.isBoss?mainColor:0x263c50,0,0,.2);
-  addBox(gunGroup,.19,.3,.28,0x101a25,0,-.17,-.1);
-  const muzzle=new THREE.Mesh(new THREE.CylinderGeometry(.085,.085,.28,8),visor);muzzle.rotation.x=Math.PI/2;muzzle.position.z=.9;gunGroup.add(muzzle);
+  buildWeaponModel(gunGroup,options.weaponId??0);
   root.userData={
     isPlayer:!!options.isPlayer,isBot:!!options.isBot,isBoss:!!options.isBoss,isRemote:!!options.isRemote,
     name:options.name||'PLAYER',health:options.health??100,maxHealth:options.maxHealth??100,shield:options.shield??0,
     dead:false,speed:options.speed??4.1,weaponId:options.weaponId??0,ammo:options.ammo??WEAPONS[options.weaponId??0].mag,
     shootTimer:rand(.2,1),reloadTimer:0,target:null,thinkTimer:0,wanderAngle:Math.random()*6.28,limbs,gunGroup,
-    moving:false,phase:Math.random()*6,damageFlash:0
+    moving:false,phase:Math.random()*6,damageFlash:0,visualWeaponId:options.weaponId??0
   };
   if(options.isBoss){
     root.scale.setScalar(1.85);
@@ -568,7 +595,7 @@ function finishReload(){
 }
 function switchWeapon(index){
   if(index<0||index>=state.slots.length||!state.slots[index])return;
-  state.selected=index;state.player.userData.weaponId=state.slots[index].id;state.player.userData.ammo=state.slots[index].ammo;state.fireTimer=0;updateHud(true);
+  state.selected=index;state.player.userData.weaponId=state.slots[index].id;state.player.userData.ammo=state.slots[index].ammo;updateWeaponVisual(state.player,state.slots[index].id);state.fireTimer=0;updateHud(true);
 }
 function addWeapon(id,tier=0){
   const existing=state.slots.findIndex(s=>s.id===id);
@@ -802,6 +829,7 @@ function updateBots(dt){
       const m=Math.hypot(mx,mz)||1;let shardSpeed=1;if(ud.shardType&&state.elapsed<ud.shardActiveUntil){if(ud.shardType==='phase')shardSpeed=1.45;if(ud.shardType==='kinetic')shardSpeed=1.2;if(ud.shardType==='aegis')shardSpeed=.88}const sp=ud.speed*(ud.health<45?1.12:1)*shardSpeed;
       if(d>9||Math.abs(strafe)>.2){moveActor(bot,mx/m*sp*dt,mz/m*sp*dt);moving=true}
       if(state.mode==='box'){const wanted=d<19?2:3;if(ud.weaponId!==wanted){ud.weaponId=wanted;ud.ammo=WEAPONS[wanted].mag;ud.reloadTimer=0}}
+      updateWeaponVisual(bot,ud.weaponId);
       const weapon=WEAPONS[ud.weaponId]||WEAPONS[0];
       if(d<weapon.range*.72&&ud.shootTimer<=0){
         if(ud.ammo<=0){ud.reloadTimer=weapon.reload;ud.ammo=weapon.mag}
@@ -964,7 +992,7 @@ function applyRemoteState(data){
   actor.position.lerp(new THREE.Vector3(p.x,groundHeight(p.x,p.z),p.z),.6);
   actor.rotation.y=Number(p.yaw)||0;actor.visible=p.alive!==false;
   actor.userData.health=p.hp??100;actor.userData.shield=p.sh??0;
-  actor.userData.weaponId=p.weapon??0;
+  actor.userData.weaponId=p.weapon??0;updateWeaponVisual(actor,actor.userData.weaponId);
 }
 function sendNetState(){
   if(state.roomSocket?.readyState!==WebSocket.OPEN||!state.running)return;
