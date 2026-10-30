@@ -574,14 +574,18 @@ function endBoxRound(winner){
 }
 function finishMatch(win){
   if(!state.running)return;state.running=false;state.paused=false;state.mouseDown=false;if(state.player)state.player.visible=false;if(playerModel)playerModel.visible=true;
-  const box=state.mode==='box',coins=box?(state.box.playerScore*35+(win?120:20)):(win?220:35+state.kills*8),xp=box?(win?280:90+state.box.playerScore*30):(win?450:100+state.kills*30);
+  const box=state.mode==='box',roulette=state.mode==='roulette';
+  const coins=box?(state.box.playerScore*35+(win?120:20)):roulette?(win?260:40+state.kills*10):(win?220:35+state.kills*8);
+  const xp=box?(win?280:90+state.box.playerScore*30):roulette?(win?500:100+state.kills*25):(win?450:100+state.kills*30);
   state.matches++;state.challenge.matches++;if(win)state.wins++;
   state.totalKills+=state.kills;addProgress(xp,coins);save();
-  $('result-kicker').textContent=box?'BOX FIGHTS · SEASON 01':'BATTLE ROYALE · SEASON 01';
-  $('result-title').textContent=win?(box?'BOX FIGHTS VICTORY':'VICTORY ROYALE'):(box?'MATCH DEFEAT':'MATCH OVER');
+  $('result-kicker').textContent=box?'BOX FIGHTS · SEASON 01':roulette?'PURE WEAPON ROULETTE · SEASON 01':'BATTLE ROYALE · SEASON 01';
+  $('result-title').textContent=win?(box?'BOX FIGHTS VICTORY':roulette?'ROULETTE COMPLETE':'VICTORY ROYALE'):(box?'MATCH DEFEAT':roulette?'TIME UP':'MATCH OVER');
   $('result-title').style.color=win?'#ffd084':'#d4e1e9';
   if(box)$('result-content').innerHTML='<div class="result-score">'+state.box.playerScore+' — '+state.box.botScore+'</div><p>Rounds won · First to five</p><p>+'+coins+' coins · +'+xp+' XP</p>';
+  else if(roulette)$('result-content').innerHTML='<div class="result-score">'+state.kills+' / 30</div><p>'+state.roulette.deaths+' deaths · '+formatTime(state.elapsed)+' / 05:00</p><p>'+(win?'All weapons completed':'Time expired')+'</p><p>+'+coins+' coins · +'+xp+' XP</p>';
   else $('result-content').innerHTML='<div class="result-score">'+(win?'#1':'#'+(state.bots.filter(a=>a.userData.dead).length+1))+'</div><p>'+state.kills+' eliminations · '+formatTime(state.elapsed)+'</p><p>+'+coins+' coins · +'+xp+' XP</p>';
+
   hide('pause-overlay');show('result-overlay');hide('game-hud');document.exitPointerLock?.();updateProfile();
 }
 function formatTime(t){const m=Math.floor(t/60),s=Math.floor(t%60);return String(m).padStart(2,'0')+':'+String(s).padStart(2,'0')}
@@ -735,6 +739,7 @@ function eliminateActor(actor,owner){
   const ud=actor.userData;if(ud.dead)return;ud.dead=true;actor.visible=false;
   if(actor===state.player){
     if(state.mode==='box'){endBoxRound('bot');return}
+    if(state.mode==='roulette'){state.roulette.deaths++;state.roulette.respawnAt=state.elapsed+1.65;state.player.visible=false;setTip('ELIMINATED · RESPAWNING IN 2...');updateHud(true);return}
     finishMatch(false);return;
   }
   if(ud.isBoss){
@@ -746,6 +751,18 @@ function eliminateActor(actor,owner){
   }
   if(state.mode==='box'){
     endBoxRound('player');return;
+  }
+  if(state.mode==='roulette'){
+    if(owner===state.player){
+      state.kills++;state.roulette.kills++;state.challenge.kills++;addProgress(20,10);
+      state.roulette.index=Math.min(ROULETTE_ORDER.length-1,state.roulette.index+1);
+      const nextId=ROULETTE_ORDER[state.roulette.index];state.slots=[createWeaponSlot(nextId)];state.selected=0;
+      state.player.userData.weaponId=nextId;state.player.userData.ammo=WEAPONS[nextId].mag;updateWeaponVisual(state.player,nextId);
+      toast('ELIMINATION · NEXT WEAPON: '+WEAPONS[nextId].name.toUpperCase());
+      if(state.kills>=30||state.roulette.index>=ROULETTE_ORDER.length-1){finishMatch(true);return}
+    }
+    state.botRespawns.push({at:state.elapsed+1.45,index:ud.botIndex??0});
+    state.alive=state.bots.filter(b=>!b.userData.dead).length+1;return;
   }
   if(owner===state.player){
     state.kills++;state.challenge.kills++;addProgress(25,12);
@@ -778,6 +795,7 @@ function createBuildWall(x,z,yaw,remote=false){
   state.builds.push(entry);state.colliders.push(collider);return entry;
 }
 function buildWall(){
+  if(state.mode==='roulette'){toast('BUILDING IS DISABLED IN PURE WEAPON ROULETTE');return}
   if(!state.running||state.mode==='br'&&state.wood<10){toast('NOT ENOUGH WOOD');return}
   if(state.builds.filter(w=>!w.remote).length>=8){toast('BUILD LIMIT REACHED');return}
   const f=new THREE.Vector3(Math.sin(state.cameraYaw),0,Math.cos(state.cameraYaw));
@@ -1105,6 +1123,7 @@ function renderLobbyPlayers(players){
   });
 }
 async function createRoom(){
+  if(state.mode==='roulette'){toast('PURE WEAPON ROULETTE IS SOLO ONLY RIGHT NOW');return}
   const mode=state.mode;
   $('party-status').textContent='Creating private room...';
   try{
@@ -1122,6 +1141,7 @@ async function joinRoom(){
   catch(e){$('lobby-status').textContent=e.message;$('party-status').textContent=e.message}
 }
 async function quickMatch(){
+  if(state.mode==='roulette'){toast('PURE WEAPON ROULETTE IS SOLO ONLY RIGHT NOW');return}
   $('party-status').textContent='Searching for another player...';show('lobby');$('lobby-title').textContent='MATCHMAKING';$('host-mode-wrap').classList.add('hidden');$('host-start').classList.add('hidden');
   try{await connectSocket('wss://pixelroyal-multiplayer.pixelroyal-21513.workers.dev/ws?mode='+state.mode);state.queueMode=true}
   catch(e){$('party-status').textContent='Matchmaking unavailable. You can still play solo.';hide('lobby');toast(e.message)}
@@ -1212,6 +1232,7 @@ function updateHud(force=false){
   $('health-fill').style.width=clamp(state.health,0,100)+'%';$('shield-fill').style.width=clamp(state.shield,0,100)+'%';
   $('health-value').textContent=Math.ceil(state.health);$('shield-value').textContent=Math.ceil(state.shield);
   $('alive-count').textContent=state.mode==='box'?'2':String(Math.max(1,state.bots.filter(b=>!b.userData.dead).length+1));
+  if(state.mode==='roulette')$('alive-count').parentElement.querySelector('small').textContent='ALIVE';
   $('elim-count').textContent=state.kills;$('wood-count').textContent=state.wood;
   $('med-count').textContent=state.medkits;$('shield-pot-count').textContent=state.shields;$('chug-count').textContent=state.chugs;$('splash-count').textContent=state.splashes;
   $('shard-count').textContent=state.shard?state.shard.toUpperCase():'—';$('dash-count').textContent='DASH '+state.dashes;
@@ -1261,6 +1282,17 @@ function updateAnimations(dt){
     if(ud.damageFlash>0)ud.damageFlash-=dt;
   }
 }
+function updateRoulette(dt){
+  if(state.roulette.respawnAt>0&&state.elapsed>=state.roulette.respawnAt){
+    const p=randomSpawn(35,95);state.player.position.set(p.x,groundHeight(p.x,p.z)+.05,p.z);
+    state.health=100;state.shield=50;state.player.userData.health=100;state.player.userData.shield=50;state.player.userData.dead=false;state.player.visible=true;state.invulnerable=2;
+    state.roulette.respawnAt=0;state.cameraYaw=Math.atan2(-p.x,-p.z);setTip('RESPAWNED · '+WEAPONS[ROULETTE_ORDER[state.roulette.index]].name.toUpperCase());updateHud(true);
+  }
+  const ready=state.botRespawns.filter(item=>state.elapsed>=item.at);state.botRespawns=state.botRespawns.filter(item=>state.elapsed<item.at);
+  for(const item of ready)spawnBot(item.index);
+  $('zone-status').innerHTML='<i></i> WEAPON ROULETTE · '+formatTime(Math.max(0,state.roulette.timeLimit-state.elapsed));
+  if(state.elapsed>=state.roulette.timeLimit)finishMatch(state.kills>=30);
+}
 function tick(dt){
   if(!state.running||state.paused)return;
   state.elapsed+=dt;
@@ -1308,7 +1340,7 @@ function pauseMatch(){
 function initEvents(){
   document.querySelectorAll('[data-mode]').forEach(btn=>btn.addEventListener('click',()=>{
     state.mode=btn.dataset.mode;document.querySelectorAll('[data-mode]').forEach(b=>b.classList.toggle('active',b===btn));
-    $('play-mode-name').textContent=state.mode==='br'?'BATTLE ROYALE':'BOX FIGHTS';
+    $('play-mode-name').textContent=state.mode==='br'?'BATTLE ROYALE':state.mode==='box'?'BOX FIGHTS':'PURE WEAPON ROULETTE';
   }));
   $('play-button').onclick=()=>{if(state.roomSocket)closeLobby();startMatch(state.mode)};
   $('create-room').onclick=createRoom;$('join-room').onclick=joinRoom;$('quick-match').onclick=quickMatch;
