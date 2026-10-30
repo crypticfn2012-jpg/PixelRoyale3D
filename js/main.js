@@ -421,7 +421,7 @@ function createActor(options={}){
     name:options.name||'PLAYER',health:options.health??100,maxHealth:options.maxHealth??100,shield:options.shield??0,
     dead:false,speed:options.speed??4.1,weaponId:options.weaponId??0,ammo:options.ammo??WEAPONS[options.weaponId??0].mag,
     shootTimer:rand(.2,1),reloadTimer:0,target:null,thinkTimer:0,wanderAngle:Math.random()*6.28,limbs,gunGroup,
-    moving:false,phase:Math.random()*6,damageFlash:0,visualWeaponId:options.weaponId??0
+    moving:false,phase:Math.random()*6,damageFlash:0,visualWeaponId:options.weaponId??0,botBuildTimer:rand(2,5)
   };
   if(options.isBoss){
     root.scale.setScalar(1.85);
@@ -961,8 +961,9 @@ function updateBots(dt){
     ud.lootThink-=dt;
     if(ud.reloadTimer>0){ud.reloadTimer-=dt;if(ud.reloadTimer<=0)ud.ammo=WEAPONS[ud.weaponId].mag}
     ud.moving=moving;
-    if(state.mode==='box'&&target===state.player&&ud.health<52&&Math.random()<dt*.24&&dist2(bot.position,state.player.position)<22){
-      const f=new THREE.Vector3(Math.sin(bot.rotation.y),0,Math.cos(bot.rotation.y));createBuildWall(bot.position.x+f.x*3,bot.position.z+f.z*3,bot.rotation.y,true);
+    ud.botBuildTimer-=dt;
+    if(state.mode==='box'&&target===state.player&&ud.health<52&&ud.botBuildTimer<=0&&dist2(bot.position,state.player.position)<22&&state.builds.filter(w=>w.remote).length<8){
+      const f=new THREE.Vector3(Math.sin(bot.rotation.y),0,Math.cos(bot.rotation.y));createBuildWall(bot.position.x+f.x*3,bot.position.z+f.z*3,bot.rotation.y,true);ud.botBuildTimer=rand(5,8);
     }
   }
 }
@@ -1303,7 +1304,7 @@ function updateHud(force=false){
   $('round-score').textContent=state.mode==='roulette'?state.kills+' / 30':state.box.playerScore+' - '+state.box.botScore;
   $('hotbar').innerHTML=Array.from({length:5},(_,i)=>{
     const s=state.slots[i],w=s?WEAPONS[s.id]:null;
-    return '<div class="hotbar-slot '+(state.selected===i?'active':'')+'"><b>'+(i+1)+'</b>'+(w?'<img src="'+asset(w.icon)+'" alt=""><span>'+escapeText(w.name)+'</span><small>'+s.ammo+' / '+w.mag+'</small>':'<span>EMPTY</span>')+'</div>';
+    return '<div class="hotbar-slot '+(state.selected===i?'active':'')+'" style="--tier-color:'+colorHex(TIERS[s?.tier||0].color)+'"><b>'+(i+1)+'</b>'+(w?'<img src="'+asset(w.icon)+'" alt=""><span>'+escapeText(w.name)+'</span><small>'+s.ammo+' / '+w.mag+'</small>':'<span>EMPTY</span>')+'</div>';
   }).join('');
   if(state.mode==='br'){
     const boss=state.bosses.find(b=>!b.userData.dead);
