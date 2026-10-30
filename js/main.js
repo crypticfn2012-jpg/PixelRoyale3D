@@ -322,6 +322,20 @@ function createActor(options={}){
     const leg=new THREE.Mesh(new THREE.CapsuleGeometry(options.isBoss?.35:.2,options.isBoss?1.1:.77,4,7),dark);leg.position.set(side*(options.isBoss?.48:.24),.47,0);leg.castShadow=true;root.add(leg);limbs.push(leg);
     const foot=new THREE.Mesh(new THREE.BoxGeometry(options.isBoss?.85:.48,.28,.75),boot);foot.position.set(side*(options.isBoss?.48:.24),.16,.13);root.add(foot);
   }
+  const armour=mat(0x263a4d,.46,.28),metal=mat(0x718b9c,.38,.72),accent=new THREE.MeshStandardMaterial({color:mainColor,emissive:mainColor,emissiveIntensity:options.isBoss?1.3:.42,metalness:.4,roughness:.3});
+  const neck=new THREE.Mesh(new THREE.CylinderGeometry(.17,.2,.28,9),skin);neck.position.y=2.12;root.add(neck);
+  const chestPlate=new THREE.Mesh(new THREE.BoxGeometry(options.isBoss?1.55:.68,options.isBoss?1.05:.78,.16),armour);chestPlate.position.set(0,1.56,.39);chestPlate.rotation.x=-.08;chestPlate.castShadow=true;root.add(chestPlate);
+  const chestMark=new THREE.Mesh(new THREE.OctahedronGeometry(options.isBoss?.25:.13,0),accent);chestMark.position.set(0,1.62,.51);root.add(chestMark);
+  const belt=new THREE.Mesh(new THREE.BoxGeometry(options.isBoss?1.55:.78,.2,.62),metal);belt.position.y=.91;root.add(belt);
+  const helmet=new THREE.Mesh(new THREE.SphereGeometry(options.isBoss?.78:.405,12,9),armour);helmet.scale.y=.38;helmet.position.set(0,2.84,0);helmet.castShadow=true;root.add(helmet);
+  const helmetStripe=new THREE.Mesh(new THREE.BoxGeometry(options.isBoss?1.16:.54,.12,.12),accent);helmetStripe.position.set(0,2.91,.31);root.add(helmetStripe);
+  const backStripe=new THREE.Mesh(new THREE.BoxGeometry(options.isBoss?1.25:.52,.16,.08),accent);backStripe.position.set(0,1.75,-.67);root.add(backStripe);
+  for(const side of [-1,1]){
+    const shoulder=new THREE.Mesh(new THREE.SphereGeometry(options.isBoss?.43:.27,9,7),metal);shoulder.position.set(side*(options.isBoss?1.22:.57),1.93,0);shoulder.scale.set(1,.72,1.12);shoulder.castShadow=true;root.add(shoulder);
+    const forearm=new THREE.Mesh(new THREE.BoxGeometry(options.isBoss?.52:.3,options.isBoss?.42:.25,.38),armour);forearm.position.set(side*(options.isBoss?1.34:.64),1.2,.12);forearm.rotation.z=side*-.12;root.add(forearm);
+    const knee=new THREE.Mesh(new THREE.BoxGeometry(options.isBoss?.68:.34,.27,.36),metal);knee.position.set(side*(options.isBoss?.48:.24),.51,.19);root.add(knee);
+    const sole=new THREE.Mesh(new THREE.BoxGeometry(options.isBoss?.92:.52,.12,.8),mat(0x060d15));sole.position.set(side*(options.isBoss?.48:.24),.055,.16);root.add(sole);
+  }
   const gunGroup=new THREE.Group();gunGroup.position.set(.48,1.45,.47);root.add(gunGroup);
   addBox(gunGroup,.32,.23,1.15,options.isBoss?mainColor:0x263c50,0,0,.2);
   addBox(gunGroup,.19,.3,.28,0x101a25,0,-.17,-.1);
