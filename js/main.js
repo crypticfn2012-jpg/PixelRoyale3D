@@ -527,6 +527,8 @@ function startMatch(mode,fromRoom=false){
   }
   hide('menu');hide('result-overlay');hide('pause-overlay');hide('lobby');show('game-hud');
   $('round-chip').classList.toggle('hidden',state.mode==='br');$('round-chip').querySelector('small').textContent=state.mode==='roulette'?'KILLS / 30':'ROUND';
+  $('alive-count').parentElement.querySelector('small').textContent=state.mode==='box'?'PLAYERS':'PLAYERS LEFT';
+  if(stormRing)stormRing.visible=state.mode==='br';
   $('boss-hud').classList.toggle('hidden',state.mode!=='br');
   state.last=performance.now();state.menuTime=0;state.saveTimer=0;
   updateHud(true);
@@ -1289,7 +1291,7 @@ function updateRoulette(dt){
     state.roulette.respawnAt=0;state.cameraYaw=Math.atan2(-p.x,-p.z);setTip('RESPAWNED · '+WEAPONS[ROULETTE_ORDER[state.roulette.index]].name.toUpperCase());updateHud(true);
   }
   const ready=state.botRespawns.filter(item=>state.elapsed>=item.at);state.botRespawns=state.botRespawns.filter(item=>state.elapsed<item.at);
-  for(const item of ready)spawnBot(item.index);
+  for(const item of ready){const old=state.bots.find(b=>b.userData.dead&&b.userData.botIndex===item.index);if(old){removeEntity(old);state.bots=state.bots.filter(b=>b!==old)}spawnBot(item.index)}
   $('zone-status').innerHTML='<i></i> WEAPON ROULETTE · '+formatTime(Math.max(0,state.roulette.timeLimit-state.elapsed));
   if(state.elapsed>=state.roulette.timeLimit)finishMatch(state.kills>=30);
 }
@@ -1341,6 +1343,7 @@ function initEvents(){
   document.querySelectorAll('[data-mode]').forEach(btn=>btn.addEventListener('click',()=>{
     state.mode=btn.dataset.mode;document.querySelectorAll('[data-mode]').forEach(b=>b.classList.toggle('active',b===btn));
     $('play-mode-name').textContent=state.mode==='br'?'BATTLE ROYALE':state.mode==='box'?'BOX FIGHTS':'PURE WEAPON ROULETTE';
+    $('party-status').textContent=state.mode==='roulette'?'Pure Weapon Roulette is currently solo only.':'Solo practice is ready. Create a room to invite your friends.';
   }));
   $('play-button').onclick=()=>{if(state.roomSocket)closeLobby();startMatch(state.mode)};
   $('create-room').onclick=createRoom;$('join-room').onclick=joinRoom;$('quick-match').onclick=quickMatch;
