@@ -1,14 +1,151 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><meta name="theme-color" content="#0b1420"><meta name="description" content="PixelRoyale 3D"><title>PixelRoyale 3D</title><link rel="stylesheet" href="style.css"><script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"}}</script></head>
-<body><div id="game-root"><canvas id="game-canvas"></canvas>
-<div id="boot-screen" class="boot-screen"><img class="boot-logo" src="https://crypticfn2012-jpg.github.io/PixelRoyale/PixelRoyale.svg"><div class="boot-title">PIXELROYALE <span>3D</span></div><div class="boot-track"><i id="boot-progress"></i></div><div id="boot-caption" class="boot-caption">Building the island…</div></div>
-<main id="menu" class="menu hidden"><header class="topbar"><div class="profile-chip"><div class="profile-avatar">PR</div><div><b id="profile-name">PLAYER</b><small id="profile-level">LEVEL 1</small></div></div><nav class="main-nav"><button data-panel="shop">SHOP</button><button data-panel="locker">LOCKER</button><button data-panel="upgrades">UPGRADES</button><button data-panel="rewards">REWARDS</button><button data-panel="pass">PIXELPASS</button><button data-panel="stats">STATS</button><button data-panel="settings">SETTINGS</button></nav><div class="wallet">P <b id="wallet-coins">0</b></div></header>
-<section class="menu-hero"><div class="hero-copy"><div class="season-tag">SEASON 01 · PULSE</div><h1>THE ISLAND<br><span>IS CALLING.</span></h1><p>Drop in. Find your loadout. Survive the storm.</p><button id="open-news" class="news-link">SEASON 1: PULSE ↗</button></div>
-<div class="mode-panel"><div class="panel-eyebrow">CHOOSE YOUR DROP</div><div class="mode-options"><button class="mode-option active" data-mode="br"><span><b>BATTLE ROYALE</b><small>24 fighters · Solo survival</small></span></button><button class="mode-option" data-mode="box"><span><b>BOX FIGHTS</b><small>1v1 · First to five rounds</small></span></button></div><button id="play-button" class="play-button"><span>PLAY</span><b>BATTLE ROYALE</b><i>→</i></button><div class="party-actions"><button id="create-room" class="party-button">CREATE ROOM</button><div class="join-row"><input id="room-code" maxlength="6" placeholder="ROOM CODE"><button id="join-room" class="party-button">JOIN</button></div></div><div id="party-status" class="party-status">PLAY starts a match. Create a room to invite friends.</div></div><div class="hero-bottom">WASD TO MOVE · MOUSE TO AIM · LAST PLAYER STANDING</div></section></main>
-<section id="lobby" class="overlay hidden"><div class="dialog"><div class="dialog-kicker">PRIVATE MATCH</div><h2 id="lobby-title">ROOM LOBBY</h2><p>Invite a friend with this room code.</p><div class="room-code-box"><small>ROOM CODE</small><b id="lobby-code">------</b><button id="copy-room">COPY</button></div><label id="host-mode-wrap" class="host-mode hidden">GAMEMODE <select id="host-mode"><option value="br">BATTLE ROYALE</option><option value="box">BOX FIGHTS</option></select></label><div class="lobby-players"><div><b>PLAYERS</b><span id="lobby-count">1 connected</span></div><div id="lobby-player-list">You · Host</div></div><p id="lobby-status" class="dialog-status">Connecting…</p><button id="host-start" class="primary-button" disabled>START MATCH</button><button id="leave-lobby" class="secondary-button">BACK TO MENU</button></div></section>
-<section id="game-hud" class="game-hud hidden"><div class="hud-top-left"><div class="hud-chip"><small>ALIVE</small><b id="alive-count">24</b></div><div class="hud-chip"><small>ELIMS</small><b id="elim-count">0</b></div></div><div id="zone-status" class="zone-status">STORM · 240s</div><div id="fps-counter" class="fps-counter hidden"></div><div id="boss-status" class="boss-status hidden"></div><div id="kill-feed" class="kill-feed"></div><div class="hud-bottom-left"><div class="health-row shield-row"><span>SHIELD</span><div class="stat-track"><i id="shield-fill"></i></div><b id="shield-value">0</b></div><div class="health-row"><span>HEALTH</span><div class="stat-track"><i id="health-fill"></i></div><b id="health-value">100</b></div></div><div id="minimap-wrap" class="minimap-wrap"><canvas id="minimap" width="180" height="180"></canvas></div><div class="hud-hotbar" id="hotbar"></div><div id="game-tip" class="game-tip"></div><div class="crosshair"><i></i><b></b></div><div class="game-controls-hint">WASD MOVE · MOUSE AIM · LMB FIRE · F BUILD · E PICK UP · R RELOAD</div><button id="pause-button" class="pause-button">Ⅱ</button></section>
-<section id="pause-overlay" class="overlay hidden"><div class="dialog"><div class="dialog-kicker">MATCH PAUSED</div><h2>PAUSED</h2><button id="resume-button" class="primary-button">RESUME</button><button id="quit-button" class="secondary-button">QUIT TO MENU</button></div></section>
-<section id="result-overlay" class="overlay hidden"><div class="dialog result-dialog"><div id="result-kicker" class="dialog-kicker">MATCH COMPLETE</div><h2 id="result-title">VICTORY</h2><div id="result-content" class="result-content"></div><button id="double-coins" class="secondary-button">WATCH AD · DOUBLE COINS</button><button id="play-again" class="primary-button">PLAY AGAIN</button><button id="result-menu" class="secondary-button">MENU</button></div></section>
-<section id="content-overlay" class="overlay hidden"><div class="dialog content-dialog"><button class="dialog-close" id="content-close">×</button><div id="content-kicker" class="dialog-kicker">PIXELROYALE</div><h2 id="content-title">SHOP</h2><div id="content-body" class="content-body"></div></div></section>
-<section id="news-overlay" class="overlay hidden"><div class="dialog news-dialog"><button class="dialog-close" id="news-close">×</button><div class="dialog-kicker">PIXELROYALE // SEASON 01</div><h2>PULSE</h2><p>Something beneath the island has powered back on. The landscape is changing, and the signal is getting stronger.</p><div class="news-item"><b>A larger island</b><span>Explore expanded terrain and updated landmarks.</span></div><div class="news-item"><b>Pulse activity detected</b><span>Cyan and magenta energy signatures surround the research zone.</span></div><div class="news-item"><b>Three containment bosses</b><span>Defeat the Warden, Ravager and Oracle.</span></div><button id="watch-trailer" class="primary-button">WATCH SEASON 1 TRAILER</button></div></section>
-<section id="trailer-overlay" class="trailer-overlay hidden"><canvas id="trailer-canvas"></canvas><div class="trailer-meta">PIXELROYALE // SEASON 01 — PULSE</div><button id="trailer-exit" class="trailer-exit">× EXIT</button><div id="trailer-title" class="trailer-title">THE SIGNAL IS ALIVE</div><div class="trailer-progress"><i id="trailer-progress-fill"></i></div></section><div id="toast" class="toast hidden"></div></div><script type="module" src="js/main.js"></script></body></html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#091522">
+<title>PixelRoyale 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800;900&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./style.css">
+</head>
+<body>
+<div id="game-root">
+  <canvas id="game-canvas" aria-label="PixelRoyale 3D game world"></canvas>
+  <div id="boot-screen" class="boot-screen">
+    <img class="boot-logo" src="https://raw.githubusercontent.com/crypticfn2012-jpg/PixelRoyale/main/PixelRoyale.svg" alt="">
+    <div class="boot-wordmark">PIXEL<span>ROYALE</span> <small>3D</small></div>
+    <div class="boot-track"><i id="boot-progress"></i></div>
+    <div id="boot-caption" class="boot-caption">BUILDING THE ISLAND</div>
+  </div>
+
+  <section id="menu" class="menu">
+    <header class="topbar">
+      <div class="profile-chip">
+        <div class="profile-avatar" id="profile-avatar">P</div>
+        <div><b id="profile-name">PLAYER</b><small id="profile-level">LEVEL 1 · RECRUIT</small></div>
+      </div>
+      <nav class="main-nav" aria-label="Main menu">
+        <button data-panel="shop"><img src="https://raw.githubusercontent.com/crypticfn2012-jpg/PixelRoyale/main/Shop.png" alt=""> SHOP</button>
+        <button data-panel="locker"><img src="https://raw.githubusercontent.com/crypticfn2012-jpg/PixelRoyale/main/Locker.png" alt=""> LOCKER</button>
+        <button data-panel="upgrades"><img src="https://raw.githubusercontent.com/crypticfn2012-jpg/PixelRoyale/main/Upgrades.png" alt=""> UPGRADES</button>
+        <button data-panel="rewards"><img src="https://raw.githubusercontent.com/crypticfn2012-jpg/PixelRoyale/main/Rewards.png" alt=""> REWARDS</button>
+        <button data-panel="pass"><img src="https://raw.githubusercontent.com/crypticfn2012-jpg/PixelRoyale/main/PixelPass.png" alt=""> PIXELPASS</button>
+        <button data-panel="stats"><img src="https://raw.githubusercontent.com/crypticfn2012-jpg/PixelRoyale/main/Stats.png" alt=""> STATS</button>
+        <button data-panel="settings"><img src="https://raw.githubusercontent.com/crypticfn2012-jpg/PixelRoyale/main/Settings.png" alt=""> SETTINGS</button>
+      </nav>
+      <div class="wallet"><span class="coin">●</span><b id="wallet-coins">0</b><small>COINS</small></div>
+    </header>
+
+    <div class="menu-scene-label"><span class="pulse-dot"></span> SEASON 01 <b>PULSE</b><span class="label-divider"></span> ISLAND STATUS: ACTIVE</div>
+    <main class="menu-main">
+      <div class="hero-copy">
+        <img class="game-logo" src="https://raw.githubusercontent.com/crypticfn2012-jpg/PixelRoyale/main/PixelRoyale.svg" alt="PixelRoyale">
+        <div class="hero-subtitle">THE ISLAND IS CHANGING.</div>
+        <p>Drop in, gear up and fight to be the last player standing. Explore the island, take on the Pulse bosses and claim experimental weapons.</p>
+        <button class="news-link" id="open-news"><span>◈</span> SEASON 01: PULSE <b>READ THE FIELD REPORT ↗</b></button>
+        <div class="menu-locations"><span>SIGNAL RIDGE</span><i></i><span>DUSTY DEPOT</span><i></i><span>PULSE CORE</span></div>
+      </div>
+      <div class="mode-panel">
+        <div class="panel-heading"><div><small>SELECT YOUR DROP</small><h2>CHOOSE A MODE</h2></div><span class="online-indicator">● LIVE</span></div>
+        <div class="mode-options">
+          <button class="mode-option active" data-mode="br">
+            <img src="https://raw.githubusercontent.com/crypticfn2012-jpg/PixelRoyale/main/BattleRoyal.jpg" alt="">
+            <span><b>BATTLE ROYALE</b><small>24 players · Be the last one standing</small></span><i>✓</i>
+          </button>
+          <button class="mode-option" data-mode="box">
+            <img src="https://raw.githubusercontent.com/crypticfn2012-jpg/PixelRoyale/main/BoxFights.jpg" alt="">
+            <span><b>BOX FIGHTS</b><small>1v1 · First to five rounds</small></span><i></i>
+          </button>
+        </div>
+        <button id="play-button" class="play-button"><span>DROP IN</span><b id="play-mode-name">BATTLE ROYALE</b><strong>→</strong></button>
+        <div class="party-block">
+          <div class="party-title"><span>PLAY WITH FRIENDS</span><small>PRIVATE PARTY</small></div>
+          <div class="party-row"><button id="create-room" class="party-button">CREATE ROOM</button><input id="room-code" maxlength="6" autocomplete="off" spellcheck="false" placeholder="ROOM CODE"><button id="join-room" class="party-button">JOIN</button></div>
+          <button id="quick-match" class="quick-match">QUICK MATCHMAKING <span>↗</span></button>
+          <div id="party-status" class="party-status">Solo practice is ready. Create a room to invite friends.</div>
+        </div>
+        <div class="mode-footer"><span>WASD TO MOVE</span><span>·</span><span>MOUSE TO AIM</span><span>·</span><span>BUILD TO SURVIVE</span></div>
+      </div>
+    </main>
+  </section>
+
+  <section id="game-hud" class="game-hud hidden">
+    <div class="hud-top">
+      <div class="hud-left">
+        <div class="hud-chip"><small>PLAYERS LEFT</small><b id="alive-count">24</b></div>
+        <div class="hud-chip"><small>ELIMINATIONS</small><b id="elim-count">0</b></div>
+        <div class="hud-chip" id="round-chip"><small>ROUND</small><b id="round-score">0 - 0</b></div>
+      </div>
+      <div class="zone-status" id="zone-status"><i></i> EYE OF THE STORM · 03:00</div>
+      <div class="hud-right">
+        <div id="fps-counter" class="fps-counter">FPS --</div>
+        <canvas id="minimap" width="180" height="180"></canvas>
+      </div>
+    </div>
+    <div class="boss-hud hidden" id="boss-hud"><div class="boss-name" id="boss-name">THE WARDEN</div><div class="boss-track"><i id="boss-health-fill"></i></div><small id="boss-health-text">760 / 760</small></div>
+    <div class="kill-feed" id="kill-feed"></div>
+    <div class="center-crosshair"><i></i><b></b><span></span></div>
+    <div class="hud-bottom">
+      <div class="player-stats">
+        <div class="stat-line"><span>SHIELD</span><div class="stat-track shield-track"><i id="shield-fill"></i></div><b id="shield-value">0</b></div>
+        <div class="stat-line"><span>HEALTH</span><div class="stat-track health-track"><i id="health-fill"></i></div><b id="health-value">100</b></div>
+        <div class="resource-line"><span>🪵 <b id="wood-count">250</b></span><span>◈ <b id="shard-count">—</b></span><span id="dash-count">DASH 0</span></div>
+      </div>
+      <div class="hotbar-wrap">
+        <div id="hotbar" class="hotbar"></div>
+        <div class="hotbar-hint">1–5 EQUIP <span>·</span> R RELOAD <span>·</span> E PICK UP</div>
+      </div>
+      <div class="consumable-hud">
+        <div><small>MEDKITS</small><b id="med-count">0</b><kbd>H</kbd></div>
+        <div><small>SHIELDS</small><b id="shield-pot-count">0</b><kbd>J</kbd></div>
+        <div><small>CHUG JUGS</small><b id="chug-count">0</b><kbd>K</kbd></div>
+        <div><small>PULSE SPLASH</small><b id="splash-count">0</b><kbd>L</kbd></div>
+      </div>
+    </div>
+    <div class="game-tip" id="game-tip">Find weapons and gear. Press E to pick up weapons.</div>
+    <button id="pause-button" class="pause-button">Ⅱ</button>
+    <div id="touch-controls" class="touch-controls">
+      <button data-touch="jump">JUMP</button><button data-touch="build">BUILD</button><button data-touch="pickup">PICKUP</button><button data-touch="dash">DASH</button><button data-touch="fire">FIRE</button>
+    </div>
+  </section>
+
+  <section id="lobby" class="overlay hidden">
+    <div class="dialog lobby-dialog">
+      <button id="leave-lobby" class="dialog-close">×</button>
+      <div class="dialog-kicker">PIXELROYALE PARTY</div><h2 id="lobby-title">ROOM CREATED</h2><p>Share this code with your friends to bring them into your party.</p>
+      <div class="room-code-box"><b id="lobby-code">------</b><button id="copy-room">COPY CODE</button></div>
+      <div class="lobby-players"><div><b>PARTY MEMBERS</b><span id="lobby-count">1 / 16</span></div><ul id="lobby-player-list"><li>You · Party Leader</li></ul></div>
+      <div class="host-mode" id="host-mode-wrap"><label for="host-mode">GAMEMODE</label><select id="host-mode"><option value="br">Battle Royale</option><option value="box">Box Fights</option></select></div>
+      <div id="lobby-status" class="dialog-status">Waiting for players...</div>
+      <button id="host-start" class="primary-button">START MATCH</button>
+    </div>
+  </section>
+
+  <section id="pause-overlay" class="overlay hidden">
+    <div class="dialog"><div class="dialog-kicker">MATCH PAUSED</div><h2>TAKE A BREATHER</h2><p>Your match is paused. The island can wait.</p><button id="resume-button" class="primary-button">RESUME MATCH</button><button id="quit-button" class="secondary-button">RETURN TO LOBBY</button></div>
+  </section>
+
+  <section id="result-overlay" class="overlay hidden">
+    <div class="dialog result-dialog"><div class="dialog-kicker" id="result-kicker">BATTLE ROYALE COMPLETE</div><h2 id="result-title">VICTORY</h2><div id="result-content"></div><div class="result-buttons"><button id="play-again" class="primary-button">PLAY AGAIN</button><button id="result-menu" class="secondary-button">RETURN TO MENU</button></div></div>
+  </section>
+
+  <section id="content-overlay" class="overlay hidden">
+    <div class="dialog content-dialog"><button id="content-close" class="dialog-close">×</button><div class="dialog-kicker" id="content-kicker">PIXELROYALE</div><h2 id="content-title">SHOP</h2><div id="content-body" class="content-body"></div></div>
+  </section>
+
+  <section id="news-overlay" class="overlay hidden">
+    <div class="dialog news-dialog"><button id="news-close" class="dialog-close">×</button><div class="dialog-kicker">RESEARCH SITE // FIELD REPORT 001</div><h2>SEASON 01: <span>PULSE</span></h2><p>Something beneath the island has powered back on. The landscape is changing, and the signal is getting stronger.</p>
+      <div class="news-cards"><article><b>THE ISLAND</b><span>Explore Signal Ridge, Dusty Depot, Frost Field, Old Harbor and the central research site.</span></article><article><b>THE BOSSES</b><span>Three experimental units have been detected. Defeat them to claim a weapon and a Pulse shard.</span></article><article><b>THE ARSENAL</b><span>Pulse variants bring new effects, from shield siphons to rift movement.</span></article></div>
+      <button id="watch-trailer" class="primary-button">WATCH SEASON TRAILER</button>
+    </div>
+  </section>
+
+  <section id="trailer-overlay" class="trailer-overlay hidden"><canvas id="trailer-canvas"></canvas><div class="trailer-meta">PIXELROYALE // SEASON 01</div><div id="trailer-title" class="trailer-title">THE SIGNAL IS ALIVE</div><button id="trailer-exit" class="trailer-exit">EXIT ✕</button><div class="trailer-progress"><i id="trailer-progress-fill"></i></div></section>
+
+  <div id="toast" class="toast hidden"></div>
+</div>
+<script type="module" src="./js/main.js"></script>
+</body>
+</html>
