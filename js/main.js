@@ -72,8 +72,35 @@ const SKINS = [
   {name:'Blaze',color:0xff9f1c,cost:0},{name:'Mint',color:0x2ec4b6,cost:150},{name:'Rose',color:0xff4d8d,cost:300},
   {name:'Royal',color:0x8a6cff,cost:500},{name:'Lime',color:0x9be22b,cost:800},{name:'Gold',color:0xffd447,cost:1200},
   {name:'Shadow',color:0x3a3f55,cost:1800},{name:'Frost',color:0x9be7ff,cost:2500},{name:'Volt',color:0x68f0df,cost:3200},
-  {name:'Ember',color:0xff704f,cost:3900},{name:'Cyber',color:0x42e6ff,cost:6400},{name:'Phantom',color:0xb86cff,cost:7000},
-  {name:'Pulse Drifter',color:0xc45cff,cost:8200},{name:'Pulse Sovereign',color:0x48edff,cost:9000}
+  {name:'Ember',color:0xff704f,cost:3900},{name:'Glacier',color:0xdce7ff,cost:4600},{name:'Midnight',color:0x202b45,cost:5200},
+  {name:'Solar',color:0xffdf4d,cost:5800},{name:'Cyber',color:0x42e6ff,cost:6400},{name:'Phantom',color:0xb86cff,cost:7000},
+  {name:'Apex',color:0xff5d51,cost:7600},{name:'Pulse Sovereign',color:0x48edff,cost:9000},{name:'Pulse Drifter',color:0xc45cff,cost:8200},
+  {name:'Neon Containment',color:0x4cf0ff,cost:8800},{name:'Blacksite Echo',color:0x7b59ff,cost:9600}
+];
+const HATS = [
+  {name:'None',icon:'🚫',color:0xffffff,cost:0},{name:'Cap',icon:'🧢',color:0xd94a3d,cost:200},
+  {name:'Horns',icon:'😈',color:0x9b3d43,cost:400},{name:'Halo',icon:'😇',color:0xffe66b,cost:700},
+  {name:'Crown',icon:'👑',color:0xffd447,cost:1200},{name:'Wizard',icon:'🧙',color:0x7651b8,cost:1800},
+  {name:'Bandana',icon:'🧣',color:0x2d7777,cost:2400},{name:'Headset',icon:'🎧',color:0x7fdcff,cost:3000},
+  {name:'Antlers',icon:'🦌',color:0x946c43,cost:3600},{name:'Pixel Crown',icon:'👑',color:0xffcf4a,cost:4200},
+  {name:'Chrome Visor',icon:'🕶️',color:0x55f5e4,cost:4800},{name:'Angel Wings',icon:'🪽',color:0xbfefff,cost:5400},
+  {name:'Orbit Halo',icon:'💫',color:0xc65cff,cost:6000},{name:'Royal Mask',icon:'🎭',color:0x9a78dc,cost:6600},
+  {name:'Neon Helmet',icon:'⛑️',color:0x55e9ff,cost:7200},{name:'Pulse Crown',icon:'♛',color:0x48edff,cost:7800},
+  {name:'Signal Visor',icon:'◈',color:0x7b70ff,cost:8200},{name:'Containment Hood',icon:'⬡',color:0x6ce8d6,cost:8600}
+];
+const TRAILS = [
+  {name:'Default',color:0xffffff,cost:0},{name:'Fire',color:0xff5a1f,cost:250},{name:'Ice',color:0x4dc9ff,cost:250},
+  {name:'Toxic',color:0x9be22b,cost:500},{name:'Pink',color:0xff4d8d,cost:500},{name:'Rainbow',color:0xffd447,cost:1500},
+  {name:'Comet',color:0xb5a0ff,cost:2200},{name:'Static',color:0xffe08a,cost:2800},{name:'Comet Fire',color:0xff9f43,cost:3400},
+  {name:'Neon Flux',color:0x70ffff,cost:3900},{name:'Royal Aura',color:0xb38cff,cost:4500},{name:'Starfall',color:0xfff0a8,cost:5200},
+  {name:'Pulse Shift',color:0x7dff9d,cost:5800},{name:'Starlight',color:0xe8e9ff,cost:6400},{name:'Pulse Orbit',color:0xc65cff,cost:7000},
+  {name:'Rift Current',color:0x51eaff,cost:7600},{name:'Blacksite Wake',color:0x9a65ff,cost:8200}
+];
+const BUILD_STYLES = [
+  {name:'Oak',color:0xb3813f,cost:0},{name:'Stone',color:0x8d939c,cost:300},{name:'Neon',color:0x243066,cost:600},
+  {name:'Steel',color:0x7e8fa6,cost:900},{name:'Candy',color:0xff6fa8,cost:1200},{name:'Golden',color:0xe8b923,cost:2000},
+  {name:'Pulse Glass',color:0x55e9ff,cost:2600},{name:'Void Rift',color:0x8b55ff,cost:3200},
+  {name:'Toxic Circuit',color:0x65f078,cost:3800},{name:'Royal Prism',color:0xe3b6ff,cost:4500}
 ];
 const NAMES = ['RiftRunner','NovaByte','CrateKing','Minty','Vex','PixelPilot','Drift','Static','Echo','Rogue','Mako','Kairo','Sparrow','Juno','Hex','Orbit','Frostbite','Talon','Blitz','Kinetic','Rook','Comet','Axel'];
 
@@ -86,7 +113,7 @@ const state = {
   box:{round:1,playerScore:0,botScore:0,roundEnded:false,nextRoundAt:0,totalKills:0},
   shard:null,shardActiveUntil:0,shardCooldownUntil:0,dashes:0,dashChargeAt:0,
   itemUse:null,reloadTimer:0,fireTimer:0,jumpVelocity:0,wasMoving:false,tipTimer:0,
-  coins:0,xp:0,level:1,totalKills:0,wins:0,matches:0,skin:'Blaze',ownedSkins:['Blaze'],premiumPass:false,
+  coins:0,xp:0,level:1,totalKills:0,wins:0,matches:0,skin:'Blaze',ownedSkins:['Blaze'],hat:'None',ownedHats:['None'],trail:'Default',ownedTrails:['Default'],buildStyle:'Oak',ownedBuilds:['Oak'],premiumPass:false,
   upgrades:{health:0,reload:0,wood:0},settings:{quality:'high',fov:78,sensitivity:1,showFps:false},
   challenge:{matches:0,kills:0,loot:0,claimed:[]},roomSocket:null,roomCode:'',roomHost:false,roomMode:'br',roomPlayerId:'',queueMode:false,
   menuTime:0,saveTimer:0,invulnerable:0
